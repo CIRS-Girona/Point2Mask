@@ -1,133 +1,95 @@
+import cv2, tqdm, gc
 import numpy as np
-import cv2, os, tqdm, gc, yaml
-from typing import Tuple
 
-from annotations import Annotations
-from colormap import Colormap
-from SAMInference import SAMInference
+from src.settings import Config
+from src.data_loader import Annotations, Colormap
+from src.sam_engine import SAMEngine
+from src.image_ops import enhance_image, post_process_mask
+from src.coco_exporter import CocoExporter
 
 
-def filter_and_color_mask(
-        mask: np.ndarray,
-        color: Tuple[int, int, int],
-        image_shape: Tuple[int, int, int],
-        min_mask_area: int
-    ) -> np.ndarray:
-        """
-        Filters a binary mask to remove small components and applies color.
-        
-        Args:
-            mask (np.ndarray): The input binary mask.
-            color (tuple): The RGB color to apply.
-            image_shape (tuple): The shape of the final colored mask (H, W, C).
-        
-        Returns:
-            np.ndarray: The colored and filtered mask.
-        """
-        mask_uint8 = mask.squeeze().astype(np.uint8)
+def main():
+    cfg = Config("config.yaml")
+    
+    # Initialize shared resources
+    clahe = cv2.createCLAHE(clipLimit=cfg.clip_limit, tileGridSize=(cfg.tile_grid, cfg.tile_grid))
+    colormap = Colormap(cfg.colormap_path)
+    sam = SAMEngine()
 
-        # Find connected components and filter by area
-        num_labels, labels_map, stats, _ = cv2.connectedComponentsWithStats(mask_uint8)
-        filtered_mask = np.zeros_like(mask_uint8)
-        for i in range(1, num_labels): # Start from 1 to skip background
-            if stats[i, cv2.CC_STAT_AREA] >= min_mask_area:
-                filtered_mask[labels_map == i] = 1 # Use 1 for logical operations
+    for working_dir in tqdm.tqdm(cfg.directories):
+        print(f"Processing: {working_dir}")
+        paths = cfg.get_paths(working_dir)
 
-        # Apply morphological closing to fill holes
-        kernel = np.ones((15, 15), np.uint8)
-        filled_mask = cv2.morphologyEx(filtered_mask, cv2.MORPH_CLOSE, kernel)
+        if not paths['annot'].exists():
+            print(f"  - Missing annotations: {paths['annot']}")
+            continue
 
-        # Apply color
-        colored_mask_part = np.zeros(image_shape, dtype=np.uint8)
-        for c in range(3):
-            colored_mask_part[:, :, c] = filled_mask * color[c]
+        try:
+            annotations = Annotations(paths['annot'])
+        except Exception as e:
+            print(f"  - Error reading annotations: {e}")
+            continue
+
+        paths['output'].mkdir(parents=True, exist_ok=True)
+
+        coco = CocoExporter()
+        for img_name, (labels, points) in annotations.data.items():
+            img_path = paths['images'] / f"{img_name}.jpg"
             
-        return colored_mask_part
+            if not img_path.exists():
+                continue
 
+            # Load & Preprocess
+            image = cv2.imread(str(img_path), cv2.IMREAD_COLOR_RGB)
+            image = enhance_image(image, clahe)
+
+            h, w = image.shape[:2]
+            creation_time = img_path.stat().st_ctime
+            coco_img_id = coco.add_image(f"{img_name}.jpg", h, w, creation_time)
+
+            final_overlay = np.zeros_like(image)
+            binary_mask_accum = np.zeros(image.shape[:2], dtype=np.uint8)
+            has_mask = False
+
+            # Process every object in the image
+            for label_idx in np.unique(labels):
+                group_points = points[labels == label_idx]
+                
+                raw_mask = sam.infer(image, group_points, label_idx)
+                if raw_mask is None: continue
+
+                color = colormap.get_color(label_idx)
+                filled_mask, colored_layer = post_process_mask(raw_mask, color, cfg.min_area)
+
+                final_overlay = cv2.add(final_overlay, colored_layer)
+
+                category_name = label_idx.split('_')[0]
+                coco_cat_id = coco.add_category(category_name)
+                coco.add_annotation(coco_img_id, coco_cat_id, filled_mask)
+
+                bin_val = cfg.mapping.get(category_name, 0)
+                binary_mask_accum[filled_mask == 1] = bin_val
+                has_mask = True
+
+            if has_mask:
+                # Save outputs
+                cv2.imwrite(str(paths['output'] / f"{img_name}.png"), cv2.cvtColor(final_overlay, cv2.COLOR_RGB2BGR))
+                cv2.imwrite(str(paths['output'] / f"{img_name}_binary.png"), binary_mask_accum)
+                
+                vis = cv2.addWeighted(image, 1, final_overlay, 0.6, 0)
+                cv2.imwrite(str(paths['output'] / f"{img_name}_overlay.jpg"), cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
+
+        # Save COCO JSON
+        coco_output_path = paths['output'] / "annotations_coco.json"
+        coco.save(coco_output_path)
+
+        # Cleanup per directory
+        del annotations, coco
+        gc.collect()
+
+    # Save colormap updates once at the very end
+    colormap.save()
+    print("Processing complete.")
 
 if __name__ == '__main__':
-    # 💡 Load Configuration from YAML
-    try:
-        with open('config.yaml', 'r') as f:
-            config = yaml.safe_load(f)
-    except Exception as e:
-        print(f"Error loading config file 'config.yaml': {e}")
-        exit()
-
-    # Get values from config (or use sensible defaults if not in config)
-    default_device = config.get('default_device', 'cuda')
-    model_type = config.get('model_type', 'vit_b')
-    min_mask_area_default = config.get('min_mask_area_default', 2000)
-    point_generation_candidates = config.get('point_generation_candidates', 2000)
-    annotations_file = config.get('annotations_file', 'annotations.csv')
-    colormap_path = config.get('colormap_path', 'colormap.csv')
-    images_dir = config.get('images_dir', 'images/')
-    checkpoint_path = config.get('checkpoint_path', 'checkpoint.pth')
-    output_dir = config.get('output_dir', 'masks/')
-
-    dirs = config.get('dirs', [])
-
-    for d in dirs:
-        print(f"Processing {d}")
-
-        # 💡 Create output directory if it doesn't exist
-        os.makedirs(f"{d}/{output_dir}", exist_ok=True)
-
-        # Initialize the inference engine
-        sam_model = SAMInference(
-            checkpoint_path=checkpoint_path,
-            colormap=Colormap(colormap_path),
-            model_type=model_type,
-            device=default_device,
-            point_generation_candidates=point_generation_candidates
-        )
-
-        # 💡 Initialize Annotations using the config path
-        annotations = Annotations(f"{d}/{annotations_file}")
-
-        print("Finished parsing annotations")
-        
-        # 💡 Fix the iteration: use keys (image_name) instead of values
-        for image_name in tqdm.tqdm(annotations.data.keys()):
-            image_path = f"{d}/{images_dir}/{image_name}.jpg"
-            if not os.path.exists(image_path) or not os.path.isfile(image_path):
-                print(f"Image {image_name} not found.")
-                continue
-
-            image = cv2.imread(image_path, cv2.IMREAD_COLOR) 
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-            image_labels, image_points = annotations.data[image_name]
-            if image_points.size == 0:
-                print("  - No points found in annotation file.")
-                continue
-
-            mask = np.zeros_like(image)
-            for label in np.unique(image_labels):
-                class_points = image_points[image_labels == label]
-                result = sam_model.process_object_group(image, class_points, label, image.shape[:2])
-                if result is None:
-                    continue
-
-                m, c = result
-                colored_part = filter_and_color_mask(m, c, image.shape, min_mask_area_default)
-                mask = cv2.add(mask, colored_part)
-
-                del m, c, result
-
-            if np.all(mask == 0):
-                print(f"No valid masks were generated for image {image_name}.")
-                continue
-
-            cv2.imwrite(
-                f"{d}/{output_dir}/{image_name}.png",
-                cv2.cvtColor(mask, cv2.COLOR_RGB2BGR)
-            )
-
-            cv2.imwrite(
-                f"{d}/{output_dir}/{image_name}_overlay.jpg",
-                cv2.cvtColor(cv2.addWeighted(image, 1, mask, 0.6, 0), cv2.COLOR_RGB2BGR)
-            )
-
-        del annotations, sam_model, image
-        gc.collect()
+    main()
