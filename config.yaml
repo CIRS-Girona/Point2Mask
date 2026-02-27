@@ -6,14 +6,19 @@ tile_grid_size: 3
 min_mask_area_default: 2000
 point_generation_candidates: 2000
 
+# Object that should be included in the binary masks along with their values
 binary_mapping:
   A: 4
   B: 5
   C: 6
   D: 7
 
+# Paths to data files/folder
+colormap_path: /media/vicorob/Spinner1/Taqi/colormap.csv
+data_dir: /media/vicorob/Spinner1/Taqi/Field_Data/
+
+# Structure of data directories (day/plot/camera/...)
 images_dir: images/
 output_dir: masks/
 annotations_file: seedpoints_on_images.csv
-colormap_path: /media/vicorob/Filesystem2/Taqi/colormap.csv
-data_dir: /media/vicorob/Spinner1/Taqi/Field_Data/
+
