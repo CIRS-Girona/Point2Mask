@@ -7,6 +7,7 @@ min_mask_area_default: 2000
 point_generation_candidates: 2000
 
 # Object that should be included in the binary masks along with their values
+# If an object is not listed here, it will be assigned a value of 0 in the binary masks.
 binary_mapping:
   A: 4
   B: 5
