@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
-from typing import Tuple
+from typing import List, Tuple
+
 
 def enhance_image(
     image: np.ndarray, 
@@ -59,3 +60,22 @@ def post_process_mask(
     colored_layer[filled_mask == 1] = color
 
     return filled_mask, colored_layer
+
+
+def render_polygon_mask(segmentation: List[List[float]], height: int, width: int, color: tuple) -> np.ndarray:
+    """
+    Renders a COCO flat-list segmentation format back into a colored raster mask.
+    (Note: Recommend removing this once coordinate validation is complete.)
+    """
+    # Create a blank RGB mask
+    mask = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # COCO segmentations can have multiple distinct polygons per object
+    for poly in segmentation:
+        # Reshape the flat list [x1, y1, x2, y2...] into OpenCV's expected shape (N, 1, 2)
+        pts = np.array(poly, dtype=np.int32).reshape((-1, 1, 2))
+        
+        # Fill the polygon with the specified color
+        cv2.fillPoly(mask, [pts], color)
+
+    return mask

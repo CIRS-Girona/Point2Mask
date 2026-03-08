@@ -57,7 +57,7 @@ class CocoExporter:
             self._current_img_id += 1
         return self._image_path_to_id[filename]
 
-    def add_annotation(self, image_id: int, category_id: int, binary_mask: np.ndarray, tolerance: float = 0.005):
+    def add_annotation(self, image_id: int, category_id: int, binary_mask: np.ndarray, tolerance: float = 0.005) -> List[List[float]]:
         """Converts binary mask to COCO polygon and adds annotation."""
         # Find contours
         contours, _ = cv2.findContours(binary_mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -89,7 +89,7 @@ class CocoExporter:
                 all_points_y.extend(poly[1::2])
 
         if not segmentation:
-            return
+            return segmentation
 
         # Calculate bounding box [x, y, width, height]
         if all_points_x and all_points_y:
@@ -112,6 +112,8 @@ class CocoExporter:
         }
         self.annotations.append(annotation)
         self._current_ann_id += 1
+
+        return segmentation
 
     def save(self, output_path: Path):
         """Writes the accumulated data to a JSON file."""

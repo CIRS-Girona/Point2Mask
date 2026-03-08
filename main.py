@@ -4,7 +4,7 @@ import numpy as np
 from src.settings import Config
 from src.data_loader import Annotations, Colormap
 from src.sam_engine import SAMEngine
-from src.image_ops import enhance_image, post_process_mask
+from src.image_ops import enhance_image, post_process_mask, render_polygon_mask
 from src.coco_exporter import CocoExporter
 
 
@@ -47,7 +47,8 @@ def main():
             creation_time = img_path.stat().st_ctime
             coco_img_id = coco.add_image(f"{img_name}.jpg", h, w, creation_time)
 
-            final_overlay = np.zeros_like(image)
+            poly_overlay = np.zeros_like(image)
+            mask_overlay = np.zeros_like(image)
             binary_mask_accum = np.zeros(image.shape[:2], dtype=np.uint8)
             has_mask = False
 
@@ -61,11 +62,13 @@ def main():
                 color = colormap.get_color(label_idx)
                 filled_mask, colored_layer = post_process_mask(raw_mask, color, cfg.min_area)
 
-                final_overlay = cv2.add(final_overlay, colored_layer)
+                mask_overlay = cv2.add(mask_overlay, colored_layer)
 
                 category_name = label_idx.split('_')[0]
                 coco_cat_id = coco.add_category(category_name)
-                coco.add_annotation(coco_img_id, coco_cat_id, filled_mask)
+                segmentation = coco.add_annotation(coco_img_id, coco_cat_id, filled_mask)
+
+                poly_overlay = cv2.add(poly_overlay, render_polygon_mask(segmentation, h, w, color))
 
                 bin_val = cfg.mapping.get(category_name, 0)
                 binary_mask_accum[filled_mask == 1] = bin_val
@@ -73,10 +76,11 @@ def main():
 
             if has_mask:
                 # Save outputs
-                cv2.imwrite(str(paths['output'] / f"{img_name}.png"), cv2.cvtColor(final_overlay, cv2.COLOR_RGB2BGR))
+                cv2.imwrite(str(paths['output'] / f"{img_name}.png"), cv2.cvtColor(mask_overlay, cv2.COLOR_RGB2BGR))
+                cv2.imwrite(str(paths['output'] / f"{img_name}_poly.png"), cv2.cvtColor(poly_overlay, cv2.COLOR_RGB2BGR))
                 cv2.imwrite(str(paths['output'] / f"{img_name}_binary.png"), binary_mask_accum)
-                
-                vis = cv2.addWeighted(image, 1, final_overlay, 0.6, 0)
+
+                vis = cv2.addWeighted(image, 1, mask_overlay, 0.6, 0)
                 cv2.imwrite(str(paths['output'] / f"{img_name}_overlay.jpg"), cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
 
         # Save COCO JSON
