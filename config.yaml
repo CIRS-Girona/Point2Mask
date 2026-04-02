@@ -4,22 +4,24 @@ tile_grid_size: 3
 
 # Mask Generation Settings
 min_mask_area_default: 2000
-point_generation_candidates: 2000
 
-# Object that should be included in the binary masks along with their values
-# If an object is not listed here, it will be assigned a value of 0 in the binary masks.
-binary_mapping:
-  A: 4
-  B: 5
-  C: 6
-  D: 7
+# Prompt Generation Settings
+prompt_type: "bb"  # Options: "bb", "pt", "both"
+sampling_mode: "hr"  # Options: "hr", "yc"
+
+# Object that should be included in the indexed masks along with their values.
+# If an object is not listed here, it will be assigned a value of 0 in the indexed masks.
+indexed_mapping:
+  A: 1
+  B: 2
+  C: 3
+  D: 4
 
 # Paths to data files/folder
-colormap_path: /media/vicorob/Spinner1/Taqi/colormap.csv
-data_dir: /media/vicorob/Spinner1/Taqi/Field_Data/
+colormap_path: None
+data_dir: /media/hayat/NVMe-2/students/train
 
 # Structure of data directories (day/plot/camera/...)
 images_dir: images/
 output_dir: masks/
 annotations_file: seedpoints_on_images.csv
-

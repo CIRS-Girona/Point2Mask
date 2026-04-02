@@ -10,10 +10,11 @@ from src.coco_exporter import CocoExporter
 
 def main():
     cfg = Config("config.yaml")
-    
-    # Initialize shared resources
-    clahe = cv2.createCLAHE(clipLimit=cfg.clip_limit, tileGridSize=(cfg.tile_grid, cfg.tile_grid))
+
     colormap = Colormap(cfg.colormap_path)
+    clahe = cv2.createCLAHE(clipLimit=cfg.clip_limit,
+                            tileGridSize=(cfg.tile_grid, cfg.tile_grid))
+    
     sam = SAMEngine()
 
     for working_dir in tqdm.tqdm(cfg.directories):
@@ -24,6 +25,7 @@ def main():
             print(f"  - Missing annotations: {paths['annot']}")
             continue
 
+        print(f"Loading seed points")
         try:
             annotations = Annotations(paths['annot'])
         except Exception as e:
@@ -38,8 +40,8 @@ def main():
             
             if not img_path.exists():
                 continue
+            print(f"\tProcessing image: {img_name} with {len(np.unique(labels))} objects.")
 
-            # Load & Preprocess
             image = cv2.imread(str(img_path), cv2.IMREAD_COLOR_RGB)
             image = enhance_image(image, clahe)
 
@@ -47,43 +49,53 @@ def main():
             creation_time = img_path.stat().st_ctime
             coco_img_id = coco.add_image(f"{img_name}.jpg", h, w, creation_time)
 
-            poly_overlay = np.zeros_like(image)
-            mask_overlay = np.zeros_like(image)
-            binary_mask_accum = np.zeros(image.shape[:2], dtype=np.uint8)
-            has_mask = False
+            rgb_mask_accum = np.zeros_like(image)
+            idx_mask_accum = np.zeros(image.shape[:2], dtype=np.uint8)
 
-            # Process every object in the image
-            for label_idx in np.unique(labels):
-                group_points = points[labels == label_idx]
+            # poly_mask_accum = np.zeros_like(image) # DEBUG only
+            
+            has_mask = False
+            for label in np.unique(labels):  # Process every object in the image
+                group_points = points[labels == label]
                 
-                raw_mask = sam.infer(image, group_points, label_idx)
+                raw_mask = sam.infer(
+                    image, group_points, label,
+                    cfg.prompt_type, cfg.sampling_mode
+                )
                 if raw_mask is None: continue
 
-                color = colormap.get_color(label_idx)
+                color = colormap.get_color(label)
                 filled_mask, colored_layer = post_process_mask(raw_mask, color, cfg.min_area)
 
-                mask_overlay = cv2.add(mask_overlay, colored_layer)
+                rgb_mask_accum = cv2.add(rgb_mask_accum, colored_layer)
 
-                category_name = label_idx.split('_')[0]
+                category_name = label.split('_')[0]
                 coco_cat_id = coco.add_category(category_name)
                 segmentation = coco.add_annotation(coco_img_id, coco_cat_id, filled_mask)
 
-                poly_overlay = cv2.add(poly_overlay, render_polygon_mask(segmentation, h, w, color))
+                # DEBUG only: save polygon masks for coordinate validation
+                # poly_mask_accum = cv2.add(
+                #     poly_mask_accum, render_polygon_mask(segmentation, h, w, color))
 
-                bin_val = cfg.mapping.get(category_name, 0)
-                binary_mask_accum[filled_mask == 1] = bin_val
+                label_idx = cfg.mapping.get(category_name, 0)
+                idx_mask_accum[filled_mask == 1] = label_idx
                 has_mask = True
 
             if has_mask:
-                # Save outputs
-                cv2.imwrite(str(paths['output'] / f"{img_name}.png"), cv2.cvtColor(mask_overlay, cv2.COLOR_RGB2BGR))
-                cv2.imwrite(str(paths['output'] / f"{img_name}_poly.png"), cv2.cvtColor(poly_overlay, cv2.COLOR_RGB2BGR))
-                cv2.imwrite(str(paths['output'] / f"{img_name}_binary.png"), binary_mask_accum)
 
-                vis = cv2.addWeighted(image, 1, mask_overlay, 0.6, 0)
-                cv2.imwrite(str(paths['output'] / f"{img_name}_overlay.jpg"), cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
+                cv2.imwrite(str(paths['output'] / f"{img_name}_rgb.png"),
+                    cv2.cvtColor(rgb_mask_accum, cv2.COLOR_RGB2BGR))
+                cv2.imwrite(str(paths['output'] / f"{img_name}_idx.png"),
+                    idx_mask_accum)
 
-        # Save COCO JSON
+                vis = cv2.addWeighted(image, 1, rgb_mask_accum, 0.6, 0)
+                cv2.imwrite(str(paths['output'] / f"{img_name}_overlay.jpg"),
+                    cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
+                
+                # DEBUG only: save polygon masks for coordinate validation
+                # cv2.imwrite(str(paths['output'] / f"{img_name}_poly.png"),
+                #     cv2.cvtColor(poly_mask_accum, cv2.COLOR_RGB2BGR))
+
         coco_output_path = paths['output'] / "annotations_coco.json"
         coco.save(coco_output_path)
 
@@ -94,6 +106,7 @@ def main():
     # Save colormap updates once at the very end
     colormap.save()
     print("Processing complete.")
+
 
 if __name__ == '__main__':
     main()

@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+
 from typing import List, Tuple
 
 
@@ -33,6 +34,7 @@ def enhance_image(
     image[:, :, 2] = clahe.apply(image[:, :, 2])
 
     return cv2.cvtColor(image, cv2.COLOR_HSV2RGB)
+
 
 def post_process_mask(
     mask: np.ndarray,

@@ -1,6 +1,9 @@
-import os, yaml
+import os
+import yaml
+
 from pathlib import Path
 from typing import Dict
+
 
 class Config:
     def __init__(self, config_path: str = "config.yaml"):
@@ -17,14 +20,19 @@ class Config:
     def min_area(self) -> int: return self._cfg.get('min_mask_area_default', 2000)
 
     @property
-    def mapping(self) -> Dict[str, int]: return self._cfg.get('binary_mapping', {})
+    def prompt_type(self) -> str: return self._cfg.get('prompt_type', 'bb')
+
+    @property
+    def sampling_mode(self) -> str: return self._cfg.get('sampling_mode', 'hr')
+
+    @property
+    def mapping(self) -> Dict[str, int]: return self._cfg.get('indexed_mapping', {})
 
     @property
     def directories(self) -> list[Path]:
         root_dir = self._cfg.get('data_dir', None)
         if root_dir is None:
             return []
-
         dirs = []
         for day in os.listdir(root_dir):
             for plot in os.listdir(f"{root_dir}/{day}"):
@@ -33,10 +41,19 @@ class Config:
                         continue
                     elif not os.path.exists(f"{root_dir}/{day}/{plot}/{camera}/seedpoints_on_images.csv"):
                         continue
-
                     dirs.append(Path(f"{root_dir}/{day}/{plot}/{camera}/"))
-
+            # Student data uses 18mm only; no camera directory:
+            # for plot in os.listdir(f"{root_dir}/{day}"):
+            #     if os.path.exists(f"{root_dir}/{day}/{plot}/masks/"):
+            #         continue
+            #     elif not os.path.exists(f"{root_dir}/{day}/{plot}/seedpoints_on_images.csv"):
+            #         continue
+            #     dirs.append(Path(f"{root_dir}/{day}/{plot}/"))
         return dirs
+    
+    @property
+    def colormap_path(self) -> str:
+        return self._cfg.get('colormap_path', 'colormap.csv')
 
     def get_paths(self, base_dir: Path) -> Dict[str, Path]:
         """Returns resolved paths for input/output."""
@@ -46,6 +63,3 @@ class Config:
             'annot': base_dir / self._cfg.get('annotations_file', 'annotations.csv')
         }
         
-    @property
-    def colormap_path(self) -> str:
-        return self._cfg.get('colormap_path', 'colormap.csv')

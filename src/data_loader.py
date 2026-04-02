@@ -1,8 +1,10 @@
 import csv, gc
 import numpy as np
 import matplotlib.cm as cm
+
 from pathlib import Path
 from typing import Dict, Tuple
+
 
 class Annotations:
     def __init__(self, csv_path: Path):
@@ -19,6 +21,9 @@ class Annotations:
             for row in reader:
                 if len(row) != 4: continue
                 img_name, x, y, cl = row
+
+                # Student data standardizes image names:
+                # img_name = img_name.replace('cc_18mm-','IMG_')
                 
                 coords = (round(float(x), 3), round(float(y), 3))
                 if img_name not in temp_data:
@@ -66,8 +71,9 @@ class Colormap:
         if label not in self.colors:
             # Generate unique random color
             while True:
-                rgb = tuple((255 * np.array(cm.gist_ncar(np.random.random())[:3])).astype(int))
+                rgb = tuple(map(int, 255 * np.array(cm.gist_ncar(np.random.random())[:3])))
                 if rgb not in self.colors.values():
                     self.colors[label] = rgb
                     break
         return self.colors[label]
+    
