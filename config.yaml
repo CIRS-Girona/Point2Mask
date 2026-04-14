@@ -18,8 +18,8 @@ indexed_mapping:
   D: 4
 
 # Paths to data files/folder
-colormap_path: None
-data_dir: /media/hayat/NVMe-2/students/train
+data_dir: path/to/data/directory/
+colormap_path: path/to/colormap.csv
 
 # Structure of data directories (day/plot/camera/...)
 images_dir: images/

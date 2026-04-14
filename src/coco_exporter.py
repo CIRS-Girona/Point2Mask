@@ -23,7 +23,7 @@ class CocoExporter:
         self.images: List[Dict[str, Any]] = []
         self.annotations: List[Dict[str, Any]] = []
         self.categories: List[Dict[str, Any]] = []
-        
+
         # Internal tracking
         self._cat_name_to_id: Dict[str, int] = {}
         self._image_path_to_id: Dict[str, int] = {}

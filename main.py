@@ -10,12 +10,12 @@ from src.coco_exporter import CocoExporter
 
 def main():
     cfg = Config("config.yaml")
-
-    colormap = Colormap(cfg.colormap_path)
-    clahe = cv2.createCLAHE(clipLimit=cfg.clip_limit,
-                            tileGridSize=(cfg.tile_grid, cfg.tile_grid))
-    
     sam = SAMEngine()
+    colormap = Colormap(cfg.colormap_path)
+    clahe = cv2.createCLAHE(
+        clipLimit=cfg.clip_limit,
+        tileGridSize=(cfg.tile_grid, cfg.tile_grid)
+    )
 
     for working_dir in tqdm.tqdm(cfg.directories):
         print(f"Processing: {working_dir}")
@@ -52,12 +52,10 @@ def main():
             rgb_mask_accum = np.zeros_like(image)
             idx_mask_accum = np.zeros(image.shape[:2], dtype=np.uint8)
 
-            # poly_mask_accum = np.zeros_like(image) # DEBUG only
-            
             has_mask = False
             for label in np.unique(labels):  # Process every object in the image
                 group_points = points[labels == label]
-                
+
                 raw_mask = sam.infer(
                     image, group_points, label,
                     cfg.prompt_type, cfg.sampling_mode
@@ -73,16 +71,11 @@ def main():
                 coco_cat_id = coco.add_category(category_name)
                 segmentation = coco.add_annotation(coco_img_id, coco_cat_id, filled_mask)
 
-                # DEBUG only: save polygon masks for coordinate validation
-                # poly_mask_accum = cv2.add(
-                #     poly_mask_accum, render_polygon_mask(segmentation, h, w, color))
-
                 label_idx = cfg.mapping.get(category_name, 0)
                 idx_mask_accum[filled_mask == 1] = label_idx
                 has_mask = True
 
             if has_mask:
-
                 cv2.imwrite(str(paths['output'] / f"{img_name}_rgb.png"),
                     cv2.cvtColor(rgb_mask_accum, cv2.COLOR_RGB2BGR))
                 cv2.imwrite(str(paths['output'] / f"{img_name}_idx.png"),
@@ -91,10 +84,6 @@ def main():
                 vis = cv2.addWeighted(image, 1, rgb_mask_accum, 0.6, 0)
                 cv2.imwrite(str(paths['output'] / f"{img_name}_overlay.jpg"),
                     cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
-                
-                # DEBUG only: save polygon masks for coordinate validation
-                # cv2.imwrite(str(paths['output'] / f"{img_name}_poly.png"),
-                #     cv2.cvtColor(poly_mask_accum, cv2.COLOR_RGB2BGR))
 
         coco_output_path = paths['output'] / "annotations_coco.json"
         coco.save(coco_output_path)

@@ -20,17 +20,13 @@ class Annotations:
             reader = csv.reader(f)
             for row in reader:
                 if len(row) != 4: continue
-                img_name, x, y, cl = row
 
-                # Student data standardizes image names:
-                # img_name = img_name.replace('cc_18mm-','IMG_')
-                
-                coords = (round(float(x), 3), round(float(y), 3))
+                img_name, x, y, cl = row
                 if img_name not in temp_data:
                     temp_data[img_name] = {'cls': [], 'pts': []}
-                
+
                 temp_data[img_name]['cls'].append(cl)
-                temp_data[img_name]['pts'].append(coords)
+                temp_data[img_name]['pts'].append((round(float(x), 3), round(float(y), 3)))
 
         # Convert to numpy arrays immediately
         while temp_data:
@@ -69,11 +65,10 @@ class Colormap:
 
     def get_color(self, label: str) -> Tuple[int, int, int]:
         if label not in self.colors:
-            # Generate unique random color
             while True:
                 rgb = tuple(map(int, 255 * np.array(cm.gist_ncar(np.random.random())[:3])))
                 if rgb not in self.colors.values():
                     self.colors[label] = rgb
                     break
+
         return self.colors[label]
-    

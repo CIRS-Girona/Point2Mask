@@ -43,11 +43,11 @@ def post_process_mask(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Filters small components and returns filled mask + colored layer."""
     mask_uint8 = mask.astype(np.uint8)
-    
+
     # Filter by area
     num, labels, stats, _ = cv2.connectedComponentsWithStats(mask_uint8)
     filtered_mask = np.zeros_like(mask_uint8)
-    
+
     # Vectorized approach is harder here due to stats check, looping is fine
     for i in range(1, num):
         if stats[i, cv2.CC_STAT_AREA] >= min_area:
@@ -76,7 +76,7 @@ def render_polygon_mask(segmentation: List[List[float]], height: int, width: int
     for poly in segmentation:
         # Reshape the flat list [x1, y1, x2, y2...] into OpenCV's expected shape (N, 1, 2)
         pts = np.array(poly, dtype=np.int32).reshape((-1, 1, 2))
-        
+
         # Fill the polygon with the specified color
         cv2.fillPoly(mask, [pts], color)
 
