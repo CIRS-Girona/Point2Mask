@@ -37,20 +37,18 @@ class Config:
         for day in os.listdir(root_dir):
             for plot in os.listdir(f"{root_dir}/{day}"):
                 for camera in os.listdir(f"{root_dir}/{day}/{plot}"):
-                    if os.path.exists(f"{root_dir}/{day}/{plot}/{camera}/masks/"):
+                    if not os.path.exists(f"{root_dir}/{day}/{plot}/{camera}/seedpoints_on_images.csv"):
                         continue
-                    elif not os.path.exists(f"{root_dir}/{day}/{plot}/{camera}/seedpoints_on_images.csv"):
-                        continue
+                    elif os.path.exists(f"{root_dir}/{day}/{plot}/{camera}/masks/"):
+                        num_images = len(os.listdir(f"{root_dir}/{day}/{plot}/{camera}/images/"))
+                        num_masks = len(os.listdir(f"{root_dir}/{day}/{plot}/{camera}/masks/"))
+                        if 3 * num_images == num_masks:
+                            continue
+
                     dirs.append(Path(f"{root_dir}/{day}/{plot}/{camera}/"))
-            # Student data uses 18mm only; no camera directory:
-            # for plot in os.listdir(f"{root_dir}/{day}"):
-            #     if os.path.exists(f"{root_dir}/{day}/{plot}/masks/"):
-            #         continue
-            #     elif not os.path.exists(f"{root_dir}/{day}/{plot}/seedpoints_on_images.csv"):
-            #         continue
-            #     dirs.append(Path(f"{root_dir}/{day}/{plot}/"))
+
         return dirs
-    
+
     @property
     def colormap_path(self) -> str:
         return self._cfg.get('colormap_path', 'colormap.csv')
@@ -62,4 +60,3 @@ class Config:
             'output': base_dir / self._cfg.get('output_dir', 'masks/'),
             'annot': base_dir / self._cfg.get('annotations_file', 'annotations.csv')
         }
-        

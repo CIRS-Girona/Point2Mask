@@ -35,12 +35,11 @@ def main():
         paths['output'].mkdir(parents=True, exist_ok=True)
 
         coco = CocoExporter()
-        for img_name, (labels, points) in annotations.data.items():
+        for img_name, (labels, points) in tqdm.tqdm(annotations.data.items()):
             img_path = paths['images'] / f"{img_name}.jpg"
             
             if not img_path.exists():
                 continue
-            print(f"\tProcessing image: {img_name} with {len(np.unique(labels))} objects.")
 
             image = cv2.imread(str(img_path), cv2.IMREAD_COLOR_RGB)
             image = enhance_image(image, clahe)
