@@ -33,17 +33,23 @@ class Config:
         root_dir = self._cfg.get('data_dir', None)
         if root_dir is None:
             return []
+
         dirs = []
         for day in os.listdir(root_dir):
+            if not os.path.isdir(f"{root_dir}/{day}"):
+                continue
+
             for plot in os.listdir(f"{root_dir}/{day}"):
+                if not os.path.isdir(f"{root_dir}/{day}/{plot}"):
+                    continue
+
                 for camera in os.listdir(f"{root_dir}/{day}/{plot}"):
-                    if not os.path.exists(f"{root_dir}/{day}/{plot}/{camera}/seedpoints_on_images.csv"):
+                    if not os.path.isdir(f"{root_dir}/{day}/{plot}/{camera}"):
+                        continue
+                    elif not os.path.exists(f"{root_dir}/{day}/{plot}/{camera}/seedpoints_on_images.csv"):
                         continue
                     elif os.path.exists(f"{root_dir}/{day}/{plot}/{camera}/masks/"):
-                        num_images = len(os.listdir(f"{root_dir}/{day}/{plot}/{camera}/images/"))
-                        num_masks = len(os.listdir(f"{root_dir}/{day}/{plot}/{camera}/masks/"))
-                        if 3 * num_images == num_masks:
-                            continue
+                        continue
 
                     dirs.append(Path(f"{root_dir}/{day}/{plot}/{camera}/"))
 

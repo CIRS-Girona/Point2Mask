@@ -33,6 +33,7 @@ def main():
             continue
 
         paths['output'].mkdir(parents=True, exist_ok=True)
+        coco_output_path = paths['output'] / "annotations_coco.json"
 
         coco = CocoExporter()
         for img_name, (labels, points) in tqdm.tqdm(annotations.data.items()):
@@ -84,15 +85,14 @@ def main():
                 cv2.imwrite(str(paths['output'] / f"{img_name}_overlay.jpg"),
                     cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
 
-        coco_output_path = paths['output'] / "annotations_coco.json"
-        coco.save(coco_output_path)
+            # Save files in case of crash
+            colormap.save()
+            coco.save(coco_output_path)
 
         # Cleanup per directory
         del annotations, coco
         gc.collect()
 
-    # Save colormap updates once at the very end
-    colormap.save()
     print("Processing complete.")
 
 

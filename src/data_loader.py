@@ -1,9 +1,18 @@
-import csv, gc
+import csv
 import numpy as np
 import matplotlib.cm as cm
 
 from pathlib import Path
 from typing import Dict, Tuple
+
+
+"""
+px=class_id*1000+instance_id
+encoded in RGB as
+R=px%256, G=(px//256)%256 and B=(px//(256*256))%256
+and decoded as
+px=R+256G+256**2B
+"""
 
 
 class Annotations:
@@ -23,18 +32,15 @@ class Annotations:
 
                 img_name, x, y, cl = row
                 if img_name not in temp_data:
-                    temp_data[img_name] = {'cls': [], 'pts': []}
+                    temp_data[img_name] = ([], [])  # cls, pts
 
-                temp_data[img_name]['cls'].append(cl)
-                temp_data[img_name]['pts'].append((round(float(x), 3), round(float(y), 3)))
+                temp_data[img_name][0].append(cl)
+                temp_data[img_name][1].append((round(float(x), 3), round(float(y), 3)))
 
         # Convert to numpy arrays immediately
         while temp_data:
             k, v = temp_data.popitem()
-            self.data[k] = (np.array(v['cls']), np.array(v['pts']))
-
-            del k, v
-            gc.collect()
+            self.data[k] = (np.array(v[0]), np.array(v[1]))
 
 
 class Colormap:
