@@ -48,12 +48,16 @@ class SAMEngine:
             box_prompt = None
 
             if prompt_type in ('pt', 'both'):
-                point_prompts = self.medial_axis_sampling(unique_pts, vertices, offset=0.2) \
-                    if 'chain' not in label and sampling_mode != 'yc' else \
-                        self.curvature_spline_sampling(unique_pts, image.shape[:2]) \
-                            if sampling_mode != 'yc' else \
-                                self.local_coverage_sampling(poly, unique_pts,
-                                    mode='p' if 'chain' in label or 'scale' in label else 'l')
+                if sampling_mode != 'yc':
+                    if 'chain' not in label:
+                        point_prompts = self.medial_axis_sampling(unique_pts, vertices, offset=0.2)
+                    else:
+                        point_prompts = self.curvature_spline_sampling(unique_pts, image.shape[:2])
+                else:
+                    coverage_mode = 'p' if ('chain' in label or 'scale' in label) else 'l'
+                    point_prompts = self.local_coverage_sampling(
+                        poly, unique_pts, mode=coverage_mode
+                    )
 
                 if not point_prompts:
                     print(f"No valid prompts for {label} with {len(unique_pts)} unique points."
@@ -87,7 +91,7 @@ class SAMEngine:
             h, w = image.shape[:2]
             hull_mask = np.zeros((h, w), dtype=np.uint8)
             rr, cc = draw_polygon(
-                np.array(poly.exterior.coords)[:, 1], 
+                np.array(poly.exterior.coords)[:, 1],
                 np.array(poly.exterior.coords)[:, 0],
                 shape=(h, w))
             hull_mask[rr, cc] = 1

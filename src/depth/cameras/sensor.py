@@ -1,0 +1,82 @@
+import numpy as np
+from typing import List
+
+from .pose import Pose
+
+
+class Sensor:
+    def __init__(self,
+        id: str,
+        width: int,
+        height: int,
+        fx: float,
+        fy: float,
+        cx: float,
+        cy: float,
+        fovx: float,
+        fovy: float,
+        k1: float = 0.0,
+        k2: float = 0.0,
+        k3: float = 0.0,
+        p1: float = 0.0,
+        p2: float = 0.0
+    ) -> None:
+        self.id: str = id
+        self.poses: List[Pose] = []
+
+        self.width: int = width    # Resolution width
+        self.height: int = height  # Resolution height
+
+        # Intrinsic Parameters
+        self.fx: float = fx      # Focal length X-axis
+        self.fy: float = fy      # Focal length Y-axis
+
+        self.cx: float = cx      # Principal point X-axis
+        self.cy: float = cy      # Principal point Y-axis
+
+        self.fovx: float = fovx    # Field of View X-axis (radians)
+        self.fovy: float = fovy    # Field of View Y-axis (radians)
+
+        # Distortion Parameters (Brown-Conrady)
+        self.k1: float = k1  # 1st Radial coefficient
+        self.k2: float = k2  # 2nd Radial coefficient
+        self.k3: float = k3  # 3rd Radial coefficient
+
+        self.p1: float = p1  # 1st Tangential coefficient
+        self.p2: float = p2  # 2nd Tangential coefficient
+
+        # Coordinate grids for ray tracing (undistorted)
+        self.u, self.v = np.meshgrid(
+            np.arange(self.width, dtype=np.float32),
+            np.arange(self.height, dtype=np.float32)
+        )
+
+        # Ray directions in camera space (normalized)
+        self.x = (self.u - self.cx) / self.fx
+        self.y = (self.v - self.cy) / self.fy
+
+
+    def compute_distortion_maps(self, max_iter: int = 100, tol: float = 1e-3, eta: float = 1.0) -> None:
+        # Iteratively solve for distorted (x, y)
+        x, y = self.x.copy(), self.y.copy()
+        for _ in range(max_iter):
+            r2 = x**2 + y**2
+            radial = 1 + self.k1*r2 + self.k2*r2**2 + self.k3*r2**3
+
+            xd = x * radial + 2*self.p1*x*y + self.p2*(r2 + 2*x**2)
+            yd = y * radial + self.p1*(r2 + 2*y**2) + 2*self.p2*x*y
+
+            x_new = x - eta * (xd - self.x)
+            y_new = y - eta * (yd - self.y)
+
+            if np.linalg.norm((x - x_new, y - y_new)) <= tol:
+                break
+
+            x, y = x_new, y_new
+
+        # Store the final distorted coordinates
+        self.x, self.y = x, y
+
+        # Convert back to pixel coordinates (to be used in remapping)
+        self.u = (x * self.fx + self.cx)
+        self.v = (y * self.fy + self.cy)

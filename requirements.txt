@@ -1,3 +1,8 @@
+paramiko
+pymeshlab
+python-dotenv
+open3d>=0.19.0,<0.20.0
+PyYAML>=6.0.0,<6.1.0
 matplotlib>=3.10.0,<3.11.0
 numpy>=2.2.0,<2.3.0
 opencv-python>=4.11.0,<4.13.0

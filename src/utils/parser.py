@@ -1,0 +1,78 @@
+import numpy as np
+import xml.etree.ElementTree as ET
+from typing import Dict, List
+
+from ..depth import Sensor, Pose
+
+
+def parse(file_path: str) -> List[Sensor]:
+    extension = file_path.split('.')[-1]
+    if extension.lower() != 'xml':
+        raise NameError(f"Invalid filename extension '{extension}', expected an XML file.")
+
+    # Parse XML file
+    tree = ET.parse(file_path)
+    root = tree.getroot()
+
+    # Parse chunk transform
+    chunk = root.find('chunk')
+    transform = chunk.find('transform')
+
+    # Build chunk transformation matrix
+    m_T_c = np.eye(4)  # Camera to mesh
+    if transform.find('rotation') is not None:
+        m_T_c[:3, :3] = np.array([float(x) for x in transform.find('rotation').text.split()]).reshape(3, 3)
+
+    if transform.find('scale') is not None:
+        m_T_c[:3, :3] *= float(transform.find('scale').text)
+
+    if transform.find('translation') is not None:
+        m_T_c[:3, 3] = np.array([float(x) for x in transform.find('translation').text.split()])
+
+    # Parse calibration parameters
+    sensors: Dict[str, Sensor] = {}
+    for sensor in chunk.find('sensors').findall('sensor'):
+        calibration = sensor.find('calibration')
+        if calibration is None:
+            continue
+
+        width = int(calibration.find('resolution').attrib['width'])
+        height = int(calibration.find('resolution').attrib['height'])
+
+        fx = float(calibration.find('f').text)
+        fy = fx
+
+        fovx = 2 * np.arctan(width / (2 * fx))
+        fovy = 2 * np.arctan(height / (2 * fy))
+
+        cx = width / 2.0 + float(calibration.find('cx').text)
+        cy = height / 2.0 + float(calibration.find('cy').text)
+
+        p1 = float(calibration.find('p1').text)
+        p2 = float(calibration.find('p2').text)
+
+        k1 = float(calibration.find('k1').text)
+        k2 = float(calibration.find('k2').text)
+        k3 = float(calibration.find('k3').text)
+
+        s = Sensor(sensor.attrib['id'], width, height, fx, fy, cx, cy, fovx, fovy, k1=k1, k2=k2, k3=k3, p1=p1, p2=p2)
+        sensors[s.id] = s
+
+    # Parse camera views
+    cameras = chunk.find('cameras').findall('camera')
+    [cameras.extend(g.findall('camera')) for g in chunk.find('cameras').findall('group')]
+
+    for cam in cameras:
+        transform_elem = cam.find('transform')
+        if transform_elem is None:
+            continue
+
+        c_T_mesh = np.array([float(x) for x in transform_elem.text.split()]).reshape(4,4)
+
+        pose = Pose()
+        pose.T = m_T_c @ c_T_mesh
+        pose.label = cam.attrib['label']
+
+        sensors[cam.attrib['sensor_id']].poses.append(pose)
+
+    return list(sensors.values())

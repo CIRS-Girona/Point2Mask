@@ -1,27 +1,83 @@
-# CLAHE Settings
-clip_limit: 1.0
-tile_grid_size: 3
-
-# Mask Generation Settings
-min_mask_area_default: 2000
-
-# Prompt Generation Settings
-prompt_type: "bb"  # Options: "bb", "pt", "both"
-sampling_mode: "hr"  # Options: "hr", "yc"
-
-# Object that should be included in the indexed masks along with their values.
-# If an object is not listed here, it will be assigned a value of 0 in the indexed masks.
-indexed_mapping:
-  A: 1
-  B: 2
-  C: 3
-  D: 4
-
 # Paths to data files/folder
-data_dir: path/to/data/directory/
-colormap_path: path/to/colormap.csv
+dataset_dir: path/to/data/directory/
 
 # Structure of data directories (day/plot/camera/...)
 images_dir: images/
-output_dir: masks/
-annotations_file: seedpoints_on_images.csv
+depths_dir: depthmaps/
+masks_dir: masks/
+
+# Names of input files (mesh, cameras, seedpoints)
+mesh_file: mesh.stl
+cameras_file: cams.xml
+seedpoints_images_file: seedpoints_on_images.csv
+seedpoints_3d_file: seedpoints_in_3D.csv
+
+sftp_settings:
+  upload_data: false
+  download_data: false
+  mesh_gb_threshold: 40  # Mesh size threshold in GB for converting to PLY
+  face_num: 10000000        # Number of faces for mesh simplification
+
+  # Directories on SFTP server for downloading and uploading data
+  download_dir: "/home/fieldimagery"
+  upload_dir: "/home/fieldimagery_processed"
+
+  cameras: ["18mm", "24mm", "35mm", "55mm", "gps"]
+  days:
+    - "250218"
+    - "250320"
+    - "250326"
+    - "250327"
+    - "250402"
+    - "250409"
+    - "250506"
+    - "250514"
+    - "250620"
+    - "250707"
+    - "250714"
+    - "250724"
+    - "250815"
+    - "250819"
+    - "250828"
+    - "251003"
+    - "251009"
+    - "251107"
+    - "251120"
+    - "251124"
+    - "251204"
+    - "251208"
+
+depthmap_generation:
+  enabled: false
+
+  # Distortion Mapping Settings
+  max_iterations: 100                      # Maximum number of iterations before terminating
+  tolerance: 0.001                         # Relative tolerance for convergence
+  damping: 1.0                             # Damping factor when calculating distortion mappings. Helps with stability.
+                                           # Smalller values will be more accurate but will require more iterations to converge.
+
+mask_generation:
+  enabled: false
+
+  # Prompt Filtering Settings
+  bb_area_threshold: 150                 # Minimum bounding box square root of area threshold (in pixels)
+  distance_threshold: 3.5                # Maximum distance threshold (in meters)
+
+  # CLAHE Settings
+  clip_limit: 1.0
+  tile_grid_size: 3
+
+  # Mask Generation Settings
+  min_mask_area_default: 2000
+
+  # Prompt Generation Settings
+  prompt_type: "bb"  # Options: "bb", "pt", "both"
+  sampling_mode: "hr"  # Options: "hr", "yc"
+
+  # Objects that should be included in the integer masks along with their values.
+  # If an object is not listed here, it will be assigned a value of 0 in the integer masks.
+  indexed_mapping:
+    A: 1
+    B: 2
+    C: 3
+    D: 4

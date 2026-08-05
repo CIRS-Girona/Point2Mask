@@ -1,4 +1,6 @@
+temp/
 venv/
+.env
 *.csv
 *.pth
 
