@@ -7,7 +7,7 @@ import numpy as np
 
 from tqdm import tqdm
 
-from ..depth import Sensor, Pose, get_world_coordinates
+from ..depth import Sensor, get_world_coordinates
 
 from .data_loader import Annotations, IDMap
 from .sam_engine import SAMEngine
@@ -15,32 +15,10 @@ from .image_ops import enhance_image, post_process_mask
 from .coco_exporter import CocoExporter
 
 
-# sam = SAMEngine()
-# id_map = IDMap(cfg.id_map_path)
-# clahe = cv2.createCLAHE(
-#     clipLimit=cfg.clip_limit,
-#     tileGridSize=(cfg.tile_grid, cfg.tile_grid)
-# )
-
-# for working_dir in tqdm.tqdm(cfg.directories):
-#     print(f"Processing: {working_dir}")
-#     paths = cfg.get_paths(working_dir)
-
-#     if not paths['annot'].exists():
-#         print(f"  - Missing annotations: {paths['annot']}")
-#         continue
-
-#     print(f"Loading seed points")
-#     try:
-#         annotations = Annotations(paths['annot'])
-#     except Exception as e:
-#         print(f"  - Error reading annotations: {e}")
-#         continue
-
-
 def process_masks(
         output_dir: Path,
         images_dir: Path,
+        depths_dir: Path,
         prompt_type: str,
         sampling_mode: str,
         min_area: int,
@@ -50,18 +28,34 @@ def process_masks(
         sam: SAMEngine,
         annotations: Annotations,
         id_map: IDMap,
+        occlusion_th: float,
+        distance_th: float,
+        bb_length_th: float,
+        point_sample_th: int
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    coco = CocoExporter()
-    for img_name, (labels, points) in tqdm(annotations.data.items()):
-        img_path = images_dir / f"{img_name}.jpg"
+    poses = {p.label: p for p in sensor.poses}
 
+    coco = CocoExporter()
+    for img_name, (labels, points) in tqdm(annotations.image_data.items()):
+        pose = poses.get(img_name, None)
+        if pose is None:
+            continue
+
+        img_path = images_dir / f"{img_name}.jpg"
         if not img_path.exists():
             continue
 
+        depth_path = depths_dir / f"{img_name}.png"
+        if not depth_path.exists():
+            continue
+
+        depth = cv2.imread(str(depth_path), cv2.IMREAD_UNCHANGED).as_type(np.float32)
         image = cv2.imread(str(img_path), cv2.IMREAD_COLOR_RGB)
+
         image = enhance_image(image, clahe)
+        positions = get_world_coordinates(depth, sensor, pose)
 
         h, w = image.shape[:2]
         creation_time = img_path.stat().st_ctime
@@ -77,9 +71,24 @@ def process_masks(
         for label, color in zip(unique_labels, colors):  # Process every object in the image
             group_points = points[labels == label]
 
+            # Filter points based on distance from the camera
+            group_points = group_points[depth / 1000.0 <= distance_th]
+
+            # Filter occluded points using KDTree
+            tree = annotations.prompt_data.get(label, None)
+            if tree is None:
+                continue
+
+            pixel_positions = positions[group_points[:, 1].astype(int), group_points[:, 0].astype(int)]
+
+            distances, _ = tree.query(pixel_positions, k=1, distance_upper_bound=occlusion_th)
+
+            group_points = group_points[distances != np.inf]
+
+            # Process the mask using SAM
             raw_mask = sam.infer(
                 image, group_points, label,
-                prompt_type, sampling_mode
+                bb_length_th, prompt_type, sampling_mode, point_sample_th
             )
             if raw_mask is None: continue
 

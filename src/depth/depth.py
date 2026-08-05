@@ -7,8 +7,8 @@ import open3d as o3d
 
 from tqdm import tqdm
 
-from .raytrace import raytrace
 from .cameras import Sensor, Pose
+from .raytrace import raytrace
 
 
 def get_world_coordinates(depthmap: np.ndarray, sensor: Sensor, pose: Pose) -> np.ndarray:
@@ -39,9 +39,6 @@ def get_world_coordinates(depthmap: np.ndarray, sensor: Sensor, pose: Pose) -> n
 
 def process_depthmaps(
     sensors: List[Sensor],
-    max_iter: int,
-    tol: float,
-    eta: float,
     output_dir: Path,
     mesh_path: Path,
 ):
@@ -67,15 +64,6 @@ def process_depthmaps(
     main_mesh = o3d.t.io.read_triangle_mesh(str(mesh_path))
     RAY_CASTER = o3d.t.geometry.RaycastingScene()
     RAY_CASTER.add_triangles(main_mesh)
-
-    # TODO: This should be done outside of this function, but for now it's here to avoid breaking the interface
-    print("Computing distortion mappings...")
-    for sensor in sensors:
-        sensor.compute_distortion_maps(
-            max_iter=max_iter,
-            tol=tol,
-            eta=eta
-        )
 
     print(f"Processing {len(views_to_process)} views...")
     for view_data in tqdm(views_to_process, desc="Raytracing"):

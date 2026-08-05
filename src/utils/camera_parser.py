@@ -5,7 +5,7 @@ from typing import Dict, List
 from ..depth import Sensor, Pose
 
 
-def parse(file_path: str) -> List[Sensor]:
+def camera_parser(file_path: str) -> List[Sensor]:
     extension = file_path.split('.')[-1]
     if extension.lower() != 'xml':
         raise NameError(f"Invalid filename extension '{extension}', expected an XML file.")

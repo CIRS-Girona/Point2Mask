@@ -1,5 +1,7 @@
 import csv
+
 import numpy as np
+from scipy.spatial import KDTree
 import matplotlib.cm as cm
 
 from pathlib import Path
@@ -8,7 +10,7 @@ from typing import Dict, Tuple
 
 class Annotations:
     def __init__(self, seedpoints_images_path: Path, seedpoints_3d_path: Path):
-        self.prompt_data: Dict[str, np.ndarray] = {}
+        self.prompt_data: Dict[str, KDTree] = {}
         self.image_data: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
 
         self._load(seedpoints_images_path, seedpoints_3d_path)
@@ -18,6 +20,23 @@ class Annotations:
             raise FileNotFoundError(f"Annotation file not found: {images_path} or {points_3d_path}")
 
         temp_data = {}
+        with open(points_3d_path, 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) != 4: continue
+
+                x, y, z, cls = row
+                if cls not in temp_data:
+                    temp_data[cls] = []  # 3D points
+
+                temp_data[cls].append((round(float(x), 3), round(float(y), 3), round(float(z), 3)))
+
+        # Convert to KDTree objects immediately
+        while temp_data:
+            k, v = temp_data.popitem()
+            self.prompt_data[k] = KDTree(np.array(v))
+
+        temp_data.clear()
         with open(images_path, 'r') as f:
             reader = csv.reader(f)
             for row in reader:
@@ -34,22 +53,6 @@ class Annotations:
         while temp_data:
             k, v = temp_data.popitem()
             self.image_data[k] = (np.array(v[0]), np.array(v[1]))
-
-        with open(points_3d_path, 'r') as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if len(row) != 4: continue
-
-                x, y, z, cls = row
-                if cls not in temp_data:
-                    temp_data[cls] = []  # 3D points
-
-                temp_data[cls].append((round(float(x), 3), round(float(y), 3), round(float(z), 3)))
-
-        # Convert to numpy arrays immediately
-        while temp_data:
-            k, v = temp_data.popitem()
-            self.prompt_data[k] = np.array(v)
 
 
 class IDMap:
@@ -115,8 +118,8 @@ class IDMap:
 
     @staticmethod
     def get_colors(n: int) -> np.ndarray:
-        """Returns a list of n distinct colors from the gist_ncar colormap in RGB format."""
+        """Returns a list of n distinct colors from the gist_rainbow colormap in RGB format."""
         return np.array([
-            255 * np.array(cm.gist_ncar(c)[:3])
+            255 * np.array(cm.gist_rainbow(c)[:3])
             for c in np.arange(0, 1, 1/n)
         ], dtype=np.uint8)

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import open3d as o3d
 
-from depth.cameras import Sensor, Pose
+from .cameras import Sensor, Pose
 
 
 def raytrace(

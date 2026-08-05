@@ -26,8 +26,10 @@ class SAMEngine:
         image: np.ndarray,
         points: np.ndarray,
         label: str,
+        bb_length_th: float,
         prompt_type: str = "bb",
-        sampling_mode: str = "hr"
+        sampling_mode: str = "hr",
+        point_sample_th: int = 50
     ) -> Optional[np.ndarray]:
         """
         'prompt_type' can be 'bb' or 'pt' or 'both' (default)
@@ -35,14 +37,18 @@ class SAMEngine:
         'sampling_mode' can be 'hr' (default) or 'yc'
         to switch between different prompt sampling strategies.
         """
-
         unique_pts = np.unique(points, axis=0)
-        if len(unique_pts) < 3: return None
+        if len(unique_pts) < point_sample_th: return None
 
         try:
             hull = ConvexHull(unique_pts)
             vertices = unique_pts[hull.vertices]
             poly = Polygon(vertices)
+
+            box_area = (poly.bounds[2] - poly.bounds[0]) * (poly.bounds[3] - poly.bounds[1])
+            if np.sqrt(box_area) < bb_length_th:
+                print(f"Bounding box for {label} is too small ({np.sqrt(box_area):.2f} < {bb_length_th}). Skipping.")
+                return None
 
             point_prompts = None
             box_prompt = None
