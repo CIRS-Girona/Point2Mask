@@ -42,7 +42,7 @@ if __name__ == "__main__":
     id_map = IDMap(str(dataset_dir))
     clahe = cv2.createCLAHE(
         clipLimit=cfg['clip_limit'],
-        tileGridSize=(cfg['tile_grid'], cfg['tile_grid'])
+        tileGridSize=(cfg['tile_grid_size'], cfg['tile_grid_size'])
     )
 
     dirs = []
