@@ -62,8 +62,13 @@ if __name__ == "__main__":
     for day, plot, camera in tqdm(dirs, desc="Cameras processed"):
         print(f"Processing {day.name}/{plot.name}/{camera.name}")
 
+        camera_file = Path(camera) / cfg['cameras_file']
+        if not camera_file.exists():
+            print(f"Camera file not found for {day.name}/{plot.name}/{camera.name}. Skipping.")
+            continue
+
         print("Computing distortion mappings...")
-        sensors = camera_parser(str(camera / cfg['cameras_file']))
+        sensors = camera_parser(str(camera_file))
         for sensor in sensors:
             sensor.compute_distortion_maps(
                 max_iter=cfg['depthmap_generation']['max_iter'],
@@ -79,6 +84,13 @@ if __name__ == "__main__":
             )
 
         if cfg['mask_generation']['enabled']:
+            seed_images = Path(camera) / cfg['seedpoints_images_file']
+            seed_points = Path(camera) / cfg['seedpoints_3d_file']
+
+            if not seed_images.exists() or not seed_points.exists():
+                print(f"Seedpoints files not found for {day.name}/{plot.name}/{camera.name}. Skipping mask generation.")
+                continue
+
             process_masks(
                 Path(camera) / cfg['masks_dir'],
                 Path(camera) / cfg['images_dir'],
@@ -91,8 +103,8 @@ if __name__ == "__main__":
                 sensors[0],
                 sam,
                 Annotations(
-                    Path(camera) / cfg['seedpoints_images_file'],
-                    Path(camera) / cfg['seedpoints_3d_file']
+                    seed_images,
+                    seed_points
                 ),
                 id_map,
                 cfg['mask_generation']['occlusion_th'],
