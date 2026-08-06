@@ -51,7 +51,7 @@ def process_masks(
         if not depth_path.exists():
             continue
 
-        depth = cv2.imread(str(depth_path), cv2.IMREAD_UNCHANGED).as_type(np.float32)
+        depth = cv2.imread(str(depth_path), cv2.IMREAD_UNCHANGED).astype(np.float32)
         image = cv2.imread(str(img_path), cv2.IMREAD_COLOR_RGB)
 
         image = enhance_image(image, clahe)

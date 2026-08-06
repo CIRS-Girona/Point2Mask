@@ -67,7 +67,6 @@ if __name__ == "__main__":
             print(f"Camera file not found for {day.name}/{plot.name}/{camera.name}. Skipping.")
             continue
 
-        print("Computing distortion mappings...")
         sensors = camera_parser(str(camera_file))
         for sensor in sensors:
             sensor.compute_distortion_maps(
