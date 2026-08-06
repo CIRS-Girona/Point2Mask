@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     dirs = []
     for day in dataset_dir.iterdir():
-        if not day.is_dir() or day: continue
+        if not day.is_dir(): continue
         if day.name not in cfg['days']: continue
 
         for plot in day.iterdir():
@@ -71,9 +71,9 @@ if __name__ == "__main__":
         sensors = camera_parser(str(camera_file))
         for sensor in sensors:
             sensor.compute_distortion_maps(
-                max_iter=cfg['depthmap_generation']['max_iter'],
-                tol=cfg['depthmap_generation']['tol'],
-                eta=cfg['depthmap_generation']['eta']
+                max_iter=cfg['depthmap_generation']['max_iterations'],
+                tol=cfg['depthmap_generation']['tolerance'],
+                eta=cfg['depthmap_generation']['damping']
             )
 
         if cfg['depthmap_generation']['enabled']:
@@ -107,10 +107,10 @@ if __name__ == "__main__":
                     seed_points
                 ),
                 id_map,
-                cfg['mask_generation']['occlusion_th'],
-                cfg['mask_generation']['distance_th'],
-                cfg['mask_generation']['bb_length_th'],
-                cfg['mask_generation']['point_sample_th']
+                cfg['mask_generation']['occlusion_threshold'],
+                cfg['mask_generation']['distance_threshold'],
+                cfg['mask_generation']['bb_area_threshold'],
+                cfg['mask_generation']['point_sample_threshold']
             )
 
     if cfg['sftp_settings']['upload_data']:
