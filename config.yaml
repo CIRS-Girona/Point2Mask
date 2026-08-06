@@ -16,6 +16,32 @@ seedpoints_3d_file: seedpoints_in_3D.csv
 clip_limit: 1.0
 tile_grid_size: 3
 
+# Days and Cameras to process.
+cameras: ["18mm", "24mm", "35mm", "55mm", "gps"]
+days:
+  # - "250218"
+  # - "250320"
+  # - "250326"
+  # - "250327"
+  # - "250402"
+  # - "250409"
+  # - "250506"
+  # - "250514"
+  # - "250620"
+  # - "250707"
+  # - "250714"
+  # - "250724"
+  # - "250815"
+  # - "250819"
+  # - "250828"
+  # - "251003"
+  - "251009"
+  # - "251107"
+  # - "251120"
+  # - "251124"
+  # - "251204"
+  # - "251208"
+
 sftp_settings:
   download_data: false
   process_meshes: false
@@ -27,30 +53,6 @@ sftp_settings:
   download_dir: "/home/fieldimagery"
   upload_dir: "/home/fieldimagery_processed"
 
-  cameras: ["18mm", "24mm", "35mm", "55mm", "gps"]
-  days:
-    - "250218"
-    - "250320"
-    - "250326"
-    - "250327"
-    - "250402"
-    - "250409"
-    - "250506"
-    - "250514"
-    - "250620"
-    - "250707"
-    - "250714"
-    - "250724"
-    - "250815"
-    - "250819"
-    - "250828"
-    - "251003"
-    - "251009"
-    - "251107"
-    - "251120"
-    - "251124"
-    - "251204"
-    - "251208"
 
 depthmap_generation:
   enabled: false

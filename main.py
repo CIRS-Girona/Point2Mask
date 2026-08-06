@@ -1,5 +1,5 @@
 import cv2
-import os, yaml
+import yaml
 from pathlib import Path
 
 from tqdm import tqdm
@@ -26,7 +26,7 @@ if __name__ == "__main__":
                 str(dataset_dir),
                 cfg['sftp_settings']['download_dir'],
                 cfg['images_dir'],
-                cfg['sftp_settings']['cameras'],
+                cfg['cameras'],
                 (day, )
             )
 
@@ -45,58 +45,61 @@ if __name__ == "__main__":
         tileGridSize=(cfg['tile_grid'], cfg['tile_grid'])
     )
 
+    dirs = []
     for day in dataset_dir.iterdir():
-        if not day.is_dir():
-            continue
+        if not day.is_dir() or day: continue
+        if day.name not in cfg['days']: continue
 
         for plot in day.iterdir():
-            if not plot.is_dir():
-                continue
+            if not plot.is_dir(): continue
 
             for camera in plot.iterdir():
-                if not camera.is_dir():
-                    continue
+                if not camera.is_dir(): continue
+                if camera.name.lower() not in cfg['cameras']: continue
 
-                print(f"Processing {day.name}/{plot.name}/{camera.name}")
+                dirs.append((day, plot, camera))
 
-                print("Computing distortion mappings...")
-                sensors = camera_parser(str(camera / cfg['cameras_file']))
-                for sensor in sensors:
-                    sensor.compute_distortion_maps(
-                        max_iter=cfg['depthmap_generation']['max_iter'],
-                        tol=cfg['depthmap_generation']['tol'],
-                        eta=cfg['depthmap_generation']['eta']
-                    )
+    for day, plot, camera in tqdm(dirs, desc="Cameras processed"):
+        print(f"Processing {day.name}/{plot.name}/{camera.name}")
 
-                if cfg['depthmap_generation']['enabled']:
-                    process_depthmaps(
-                        sensors,
-                        Path(camera) / cfg['depths_dir'],
-                        Path(camera) / cfg['mesh_file']
-                    )
+        print("Computing distortion mappings...")
+        sensors = camera_parser(str(camera / cfg['cameras_file']))
+        for sensor in sensors:
+            sensor.compute_distortion_maps(
+                max_iter=cfg['depthmap_generation']['max_iter'],
+                tol=cfg['depthmap_generation']['tol'],
+                eta=cfg['depthmap_generation']['eta']
+            )
 
-                if cfg['mask_generation']['enabled']:
-                    process_masks(
-                        Path(camera) / cfg['masks_dir'],
-                        Path(camera) / cfg['images_dir'],
-                        Path(camera) / cfg['depths_dir'],
-                        cfg['mask_generation']['prompt_type'],
-                        cfg['mask_generation']['sampling_mode'],
-                        cfg['mask_generation']['min_area'],
-                        cfg['mask_generation']['indexed_mapping'],
-                        clahe,
-                        sensors[0],
-                        sam,
-                        Annotations(
-                            Path(camera) / cfg['seedpoints_images_file'],
-                            Path(camera) / cfg['seedpoints_3d_file']
-                        ),
-                        id_map,
-                        cfg['mask_generation']['occlusion_th'],
-                        cfg['mask_generation']['distance_th'],
-                        cfg['mask_generation']['bb_length_th'],
-                        cfg['mask_generation']['point_sample_th']
-                    )
+        if cfg['depthmap_generation']['enabled']:
+            process_depthmaps(
+                sensors,
+                Path(camera) / cfg['depths_dir'],
+                Path(camera) / cfg['mesh_file']
+            )
+
+        if cfg['mask_generation']['enabled']:
+            process_masks(
+                Path(camera) / cfg['masks_dir'],
+                Path(camera) / cfg['images_dir'],
+                Path(camera) / cfg['depths_dir'],
+                cfg['mask_generation']['prompt_type'],
+                cfg['mask_generation']['sampling_mode'],
+                cfg['mask_generation']['min_area'],
+                cfg['mask_generation']['indexed_mapping'],
+                clahe,
+                sensors[0],
+                sam,
+                Annotations(
+                    Path(camera) / cfg['seedpoints_images_file'],
+                    Path(camera) / cfg['seedpoints_3d_file']
+                ),
+                id_map,
+                cfg['mask_generation']['occlusion_th'],
+                cfg['mask_generation']['distance_th'],
+                cfg['mask_generation']['bb_length_th'],
+                cfg['mask_generation']['point_sample_th']
+            )
 
     if cfg['sftp_settings']['upload_data']:
         print("Uploading files via SFTP...")
