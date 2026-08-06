@@ -49,7 +49,7 @@ def process_depthmaps(
         views.extend([(s, p) for p in s.poses])
 
     views_to_process = []
-    completed = set(output_dir.glob("*.png"))
+    completed = {file.name for file in output_dir.glob("*.png")}
     views_to_process = [
         (s, p) for (s, p) in views
         if f"{p.label}.png" not in completed
