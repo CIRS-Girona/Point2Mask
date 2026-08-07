@@ -70,9 +70,10 @@ def process_masks(
         has_mask = False
         for label, color in zip(unique_labels, colors):  # Process every object in the image
             group_points = points[labels == label]
+            group_depths = depth[group_points[:, 1].astype(int), group_points[:, 0].astype(int)] / 1000.0
 
             # Filter points based on distance from the camera
-            group_points = group_points[depth / 1000.0 <= distance_th]
+            group_points = group_points[group_depths <= distance_th]
 
             # Filter occluded points using KDTree
             tree = annotations.prompt_data.get(label, None)
@@ -80,7 +81,6 @@ def process_masks(
                 continue
 
             pixel_positions = positions[group_points[:, 1].astype(int), group_points[:, 0].astype(int)]
-
             distances, _ = tree.query(pixel_positions, k=1, distance_upper_bound=occlusion_th)
 
             group_points = group_points[distances != np.inf]

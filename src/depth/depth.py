@@ -29,6 +29,11 @@ def get_world_coordinates(depthmap: np.ndarray, sensor: Sensor, pose: Pose) -> n
 
     # Rotate local ray vectors to world space
     R = pose.T[:3, :3]
+
+    # Normalize the columns of R to remove the Agisoft chunk scale factor
+    R = R / np.linalg.norm(R, axis=0)
+
+    # Rotate local ray vectors to world space
     ray_vectors = np.einsum('ij,hwj->hwi', R, ray_vectors)
 
     # Broadcast translation to the grid size
