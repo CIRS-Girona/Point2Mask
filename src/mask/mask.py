@@ -62,6 +62,7 @@ def process_masks(
         coco_img_id = coco.add_image(f"{img_name}.jpg", h, w, creation_time)
 
         rgb_mask_accum = np.zeros_like(image)
+        enc_mask_accum = np.zeros_like(image)
         idx_mask_accum = np.zeros(image.shape[:2], dtype=np.uint8)
 
         unique_labels = np.unique(labels)
@@ -92,9 +93,14 @@ def process_masks(
             )
             if raw_mask is None: continue
 
+            _, enc_rgb = id_map.get_id(label)
+
             filled_mask, colored_layer = post_process_mask(raw_mask, color, min_area)
+            filled_mask, encoded_layer = post_process_mask(raw_mask, enc_rgb, min_area)
+
 
             rgb_mask_accum = cv2.add(rgb_mask_accum, colored_layer)
+            enc_mask_accum = cv2.add(enc_mask_accum, encoded_layer)
 
             category_name = label.split('_')[0]
             coco_cat_id = coco.add_category(category_name)
@@ -106,7 +112,7 @@ def process_masks(
 
         if has_mask:
             cv2.imwrite(str(output_dir / f"{img_name}_rgb.png"),
-                cv2.cvtColor(rgb_mask_accum, cv2.COLOR_RGB2BGR))
+                cv2.cvtColor(enc_mask_accum, cv2.COLOR_RGB2BGR))
             cv2.imwrite(str(output_dir / f"{img_name}_idx.png"),
                 idx_mask_accum)
 
@@ -115,7 +121,6 @@ def process_masks(
                 cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
 
         # Save files in case of crash
-        id_map.save()
         coco.save(output_dir / "annotations_coco.json")
 
     # Cleanup per directory
