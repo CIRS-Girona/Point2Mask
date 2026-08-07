@@ -47,7 +47,6 @@ class SAMEngine:
 
             box_area = (poly.bounds[2] - poly.bounds[0]) * (poly.bounds[3] - poly.bounds[1])
             if np.sqrt(box_area) < bb_length_th:
-                print(f"Bounding box for {label} is too small ({np.sqrt(box_area):.2f} < {bb_length_th}). Skipping.")
                 return None
 
             point_prompts = None
