@@ -76,10 +76,15 @@ if __name__ == "__main__":
             )
 
         if cfg['depthmap_generation']['enabled']:
+            mesh_file = Path(camera) / cfg['mesh_file']
+            if not mesh_file.exists():
+                print(f"Mesh file not found for {day.name}/{plot.name}/{camera.name}. Skipping depthmap and mask generation.")
+                continue
+
             process_depthmaps(
                 sensors,
                 Path(camera) / cfg['depths_dir'],
-                Path(camera) / cfg['mesh_file']
+                mesh_file
             )
 
         if cfg['mask_generation']['enabled']:
