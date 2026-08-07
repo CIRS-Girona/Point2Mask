@@ -70,7 +70,14 @@ def process_masks(
 
         has_mask = False
         for label, color in zip(unique_labels, colors):  # Process every object in the image
-            group_points = points[labels == label]
+            valid_mask = labels == label
+            valid_mask &= np.all(points >= 0, axis=1)  # Ensure points are valid
+            valid_mask &= np.all(points[:, :2] < [w, h], axis=1)  # Ensure points are within image bounds
+
+            if not np.any(valid_mask):
+                continue
+
+            group_points = points[valid_mask]
             group_depths = depth[group_points[:, 1].astype(int), group_points[:, 0].astype(int)] / 1000.0
 
             # Filter points based on distance from the camera

@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
                 dirs.append((day, plot, camera))
 
-    for day, plot, camera in tqdm(dirs, desc="Cameras processed"):
+    for day, plot, camera in tqdm(dirs, desc="Plots processed"):
         print(f"Processing {day.name}/{plot.name}/{camera.name}")
 
         camera_file = Path(camera) / cfg['cameras_file']

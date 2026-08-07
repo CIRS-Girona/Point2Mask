@@ -129,4 +129,3 @@ class CocoExporter:
         }
         with open(output_path, 'w') as f:
             json.dump(coco_output, f, indent=4)
-        print(f"COCO annotations saved to {output_path}")

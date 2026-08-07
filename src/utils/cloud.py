@@ -24,7 +24,7 @@ def download_contents(
         nas_file_path = f"{nas_dir_path}/{file}"
 
         # Filtering logic
-        if "web" in file or ("_cc" in file and "annotations" not in file) or "mosaic" in file or "color_cal" in file:
+        if "web" in file or "mosaic" in file or "color_cal" in file:
             continue
 
         if sftp.is_dir(nas_file_path):
@@ -60,11 +60,11 @@ def download_contents(
         if ext == "jpg":
             local_dir_path += f"/{images_dir}"
             local_file_path = f"{local_dir_path}/{label}.{ext}"
-        elif ext == "obj":
+        elif ext == "obj" and "cc" in file:
             local_file_path = f"{local_dir_path}/mesh.obj"
-        elif ext == "xml":
+        elif ext == "xml" and "cc" in file:
             local_file_path = f"{local_dir_path}/cams.xml"
-        elif ext in ["csv", "mtl", "png"]:
+        elif ext == "csv" or (ext in ["mtl", "png"] and "cc" in file):
             local_file_path = f"{local_dir_path}/{label}.{ext}"
         else:
             continue
