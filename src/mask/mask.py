@@ -38,7 +38,8 @@ def process_masks(
         image = enhance_image(image, clahe)
 
         # Always feed frame to model to maintain temporal consistency
-        sam._infer(image, None, i, 0)
+        if i > 0:
+            sam._infer(image, None, i, 0)
 
         img_name = img_path.name.split('.')[0]
         if img_name in processed:
