@@ -19,8 +19,6 @@ def process_masks(
         output_dir: Path,
         images_dir: Path,
         depths_dir: Path,
-        prompt_type: str,
-        sampling_mode: str,
         min_area: int,
         mapping: Dict[str, int],
         clahe,
@@ -28,10 +26,6 @@ def process_masks(
         sam: SAMEngine,
         annotations: Annotations,
         id_map: IDMap,
-        occlusion_th: float,
-        distance_th: float,
-        bb_length_th: float,
-        point_sample_th: int
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -78,37 +72,18 @@ def process_masks(
             valid_mask &= np.all(points >= 0, axis=1)  # Ensure points are valid
             valid_mask &= np.all(points[:, :2] < [w, h], axis=1)  # Ensure points are within image bounds
 
-            if not np.any(valid_mask):
-                continue
-
-            group_points = points[valid_mask]
-            group_depths = depth[group_points[:, 1].astype(int), group_points[:, 0].astype(int)] / 1000.0
-
-            # Filter points based on distance from the camera
-            group_points = group_points[group_depths <= distance_th]
-
-            # Filter occluded points using KDTree
             tree = annotations.prompt_data.get(label, None)
-            if tree is None:
+            prompt, poly = sam.get_prompt(points, depth, positions, valid_mask, tree)
+            obj_id, enc_rgb = id_map.get_id(label)
+
+            # Always feed frame to model even if no mask is returned, to maintain temporal consistency
+            raw_mask = sam.infer(image, prompt, obj_id)  
+            if raw_mask is None:
                 continue
 
-            pixel_positions = positions[group_points[:, 1].astype(int), group_points[:, 0].astype(int)]
-            distances, _ = tree.query(pixel_positions, k=1, distance_upper_bound=occlusion_th)
-
-            group_points = group_points[distances != np.inf]
-
-            # Process the mask using SAM
-            raw_mask = sam.infer(
-                image, group_points, label,
-                bb_length_th, prompt_type, sampling_mode, point_sample_th
-            )
-            if raw_mask is None: continue
-
-            _, enc_rgb = id_map.get_id(label)
-
-            filled_mask, colored_layer = post_process_mask(raw_mask, color, min_area)
-            filled_mask, encoded_layer = post_process_mask(raw_mask, enc_rgb, min_area)
-
+            mask = sam.process_mask(raw_mask, poly)
+            filled_mask, colored_layer = post_process_mask(mask, color, min_area)
+            filled_mask, encoded_layer = post_process_mask(mask, enc_rgb, min_area)
 
             rgb_mask_accum = cv2.add(rgb_mask_accum, colored_layer)
             enc_mask_accum = cv2.add(enc_mask_accum, encoded_layer)

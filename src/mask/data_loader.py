@@ -74,7 +74,7 @@ class IDMap:
             for label, id in self._ids.items():
                 writer.writerow((label, id))
 
-    def get_id(self, label: str) -> int:
+    def get_id(self, label: str) -> Tuple[int, np.ndarray]:
         """Returns the object ID and encoded RGB color for a given label."""
         cls, grp, inst = label.strip().split('_')
 

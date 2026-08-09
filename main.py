@@ -38,7 +38,13 @@ if __name__ == "__main__":
             cfg['sftp_settings']['decimate_percent']
         )
 
-    sam = SAMEngine()
+    sam = SAMEngine(
+        cfg['mask_generation']['occlusion_threshold'],
+        cfg['mask_generation']['distance_threshold'],
+        cfg['mask_generation']['bb_area_threshold'],
+        cfg['mask_generation']['point_sample_threshold']
+    )
+
     id_map = IDMap(str(dataset_dir))
     clahe = cv2.createCLAHE(
         clipLimit=cfg['clip_limit'],
@@ -95,12 +101,11 @@ if __name__ == "__main__":
                 print(f"Seedpoints files not found for {day.name}/{plot.name}/{camera.name}. Skipping mask generation.")
                 continue
 
+            sam.reset()
             process_masks(
                 Path(camera) / cfg['masks_dir'],
                 Path(camera) / cfg['images_dir'],
                 Path(camera) / cfg['depths_dir'],
-                cfg['mask_generation']['prompt_type'],
-                cfg['mask_generation']['sampling_mode'],
                 cfg['mask_generation']['min_area'],
                 cfg['mask_generation']['indexed_mapping'],
                 clahe,
@@ -111,10 +116,6 @@ if __name__ == "__main__":
                     seed_points
                 ),
                 id_map,
-                cfg['mask_generation']['occlusion_threshold'],
-                cfg['mask_generation']['distance_threshold'],
-                cfg['mask_generation']['bb_area_threshold'],
-                cfg['mask_generation']['point_sample_threshold']
             )
 
     if cfg['sftp_settings']['upload_data']:
