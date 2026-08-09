@@ -58,6 +58,7 @@ class IDMap:
     def __init__(self, dir_path: str):
         self.file_path = Path(dir_path) / "ID_map.csv"
         self._ids: Dict[str, int] = {}
+        self._reverse_ids: Dict[str, int] = {}
         self._load()
 
     def _load(self):
@@ -66,6 +67,7 @@ class IDMap:
                 for row in csv.reader(f):
                     if len(row) == 2:
                         self._ids[row[0]] = int(row[1])
+                        self._reverse_ids[int(row[1])] = row[0]
 
     def _save(self):
         with open(self.file_path, 'w', newline='') as f:
@@ -80,6 +82,7 @@ class IDMap:
         # Create a unique numerical identifier based on the class
         if cls not in self._ids:
             self._ids[cls] = len(self._ids) + 1
+            self._reverse_ids[self._ids[cls]] = cls
             self._save()
 
         object_id = self.encode_object_id(self._ids[cls], int(inst))

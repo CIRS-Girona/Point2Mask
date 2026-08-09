@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 import numpy as np
 import cv2
@@ -62,7 +64,7 @@ class SAMEngine:
         vertices = unique_pts[hull.vertices]
         poly = Polygon(vertices)
 
-        box_prompt = [[list(poly.bounds)]]  # [x_min, y_min, x_max, y_max]
+        box_prompt = list(poly.bounds)  # [x_min, y_min, x_max, y_max]
 
         box_area = (poly.bounds[2] - poly.bounds[0]) * (poly.bounds[3] - poly.bounds[1])
         if np.sqrt(box_area) < self.bb_length_th or len(unique_pts) < self.point_sample_th:
@@ -70,11 +72,11 @@ class SAMEngine:
 
         return box_prompt, poly
 
-    def _infer(self,
+    def infer(self,
         image: np.ndarray,
-        box_prompt: np.ndarray,
+        box_prompt: List[List[int]],
         frame_idx: int,
-        object_id: int
+        object_ids: List[int]
     ) -> np.ndarray:
         # Reference: https://huggingface.co/docs/transformers/v5.14.0/en/model_doc/sam2_video#streaming-video-inference
         inputs = self.processor(images=image, device=self.device, return_tensors="pt").to(self.device)
@@ -83,29 +85,20 @@ class SAMEngine:
             self.processor.add_inputs_to_inference_session(
                 inference_session=self._session,
                 frame_idx=frame_idx,
-                obj_ids=[object_id],
-                input_boxes=box_prompt,
+                obj_ids=object_ids,
+                input_boxes=[box_prompt],
                 original_size=inputs.original_sizes[0],
             )
 
         outputs = self.model(inference_session=self._session, frame=inputs.pixel_values[0])
+        if box_prompt is None:
+            return None
 
-        if box_prompt is not None:
-            masks = self.processor.post_process_masks([outputs.pred_masks], original_sizes=inputs.original_sizes)
-            return np.all(masks[0].squeeze(0).permute(1, 2, 0).cpu().numpy(), axis=2)
+        masks = self.processor.post_process_masks([outputs.pred_masks], original_sizes=inputs.original_sizes, binarize=False)
+        mask = masks[0].squeeze(1).permute(1, 2, 0).max(dim=2).cpu().numpy()
 
-        return None
+        return mask
 
-
-    def infer(self,
-        image: np.ndarray,
-        box_prompt: np.ndarray,
-        polygon: Polygon,
-        frame_idx: int,
-        object_id: int
-    ) -> np.ndarray:
-        mask = self._infer(image, box_prompt, frame_idx, object_id)
-        return self.process_mask(mask, polygon)
 
     def process_mask(self, mask: np.ndarray, poly: Polygon):
         # IOU Check
