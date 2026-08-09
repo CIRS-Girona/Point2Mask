@@ -78,17 +78,24 @@ class SAMEngine:
     ) -> np.ndarray:
         # Reference: https://huggingface.co/docs/transformers/v5.14.0/en/model_doc/sam2_video#streaming-video-inference
         inputs = self.processor(images=image, device=self.device, return_tensors="pt").to(self.device)
-        self.processor.add_inputs_to_inference_session(
-            inference_session=self._session,
-            frame_idx=frame_idx,
-            obj_ids=[object_id],
-            input_boxes=box_prompt,
-            original_size=inputs.original_sizes[0],
-        )
+
+        if box_prompt is not None:
+            self.processor.add_inputs_to_inference_session(
+                inference_session=self._session,
+                frame_idx=frame_idx,
+                obj_ids=[object_id],
+                input_boxes=box_prompt,
+                original_size=inputs.original_sizes[0],
+            )
 
         outputs = self.model(inference_session=self._session, frame=inputs.pixel_values[0])
-        masks = self.processor.post_process_masks([outputs.pred_masks], original_sizes=inputs.original_sizes)
-        return np.all(masks[0].squeeze(0).permute(1, 2, 0).cpu().numpy(), axis=2)
+
+        if box_prompt is not None:
+            masks = self.processor.post_process_masks([outputs.pred_masks], original_sizes=inputs.original_sizes)
+            return np.all(masks[0].squeeze(0).permute(1, 2, 0).cpu().numpy(), axis=2)
+
+        return None
+
 
     def infer(self,
         image: np.ndarray,
