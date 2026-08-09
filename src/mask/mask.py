@@ -36,9 +36,13 @@ def process_masks(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     poses = {p.label: p for p in sensor.poses}
+    processed = {im.name.split('_overlay')[0] for im in output_dir.glob("*.jpg")}
 
     coco = CocoExporter()
-    for img_name, (labels, points) in tqdm(annotations.image_data.items()):
+    for img_name, (labels, points) in tqdm(annotations.image_data.items(), desc="Mask Generation"):
+        if img_name in processed:
+            continue
+
         pose = poses.get(img_name, None)
         if pose is None:
             continue

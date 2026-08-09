@@ -26,7 +26,6 @@ def simplify_mesh(mesh_path: str, gb_threshold: int, target_perc: float):
                 'meshing_decimation_quadric_edge_collapse_with_texture',
                 targetperc=target_perc,
                 preservenormal=True,
-                preservetopology=True
             )
 
             ms.save_current_mesh(f"{filepath}/{label}.ply")

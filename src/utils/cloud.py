@@ -57,14 +57,14 @@ def download_contents(
 
         label = '.'.join(file.split('.')[:-1])
         ext = file.split('.')[-1].lower()
-        if ext == "jpg":
+        if ext == "jpg" and "cc" not in nas_file_path:
             local_dir_path += f"/{images_dir}"
             local_file_path = f"{local_dir_path}/{label}.{ext}"
-        elif ext == "obj" and "cc" in file:
+        elif ext == "obj" and ("gps" in file or "cc" in file):
             local_file_path = f"{local_dir_path}/mesh.obj"
-        elif ext == "xml" and "cc" in file:
+        elif ext == "xml" and ("gps" in file or "cc" in file):
             local_file_path = f"{local_dir_path}/cams.xml"
-        elif ext == "csv" or (ext in ["mtl", "png"] and "cc" in file):
+        elif ext == "csv" or (ext in ["mtl", "png"] and ("gps" in file or "cc" in file)):
             local_file_path = f"{local_dir_path}/{label}.{ext}"
         else:
             continue
