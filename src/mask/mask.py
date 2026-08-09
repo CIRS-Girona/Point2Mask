@@ -33,16 +33,23 @@ def process_masks(
     processed = {im.name.split('_overlay')[0] for im in output_dir.glob("*.jpg")}
 
     coco = CocoExporter()
-    for i, (img_name, labels, points) in enumerate(tqdm(annotations.image_data, desc="Mask Generation")):
+    for i, img_path in enumerate(tqdm(sorted(images_dir.glob("*.jpg")), desc="Mask Generation")):
+        image = cv2.imread(str(img_path), cv2.IMREAD_COLOR_RGB)
+        image = enhance_image(image, clahe)
+
+        # Always feed frame to model to maintain temporal consistency
+        sam._infer(image, None, i, 0)
+
+        img_name = img_path.name.split('.')[0]
         if img_name in processed:
+            continue
+
+        labels, points = annotations.image_data.get(img_name, (None, None))
+        if labels is None or points is None:
             continue
 
         pose = poses.get(img_name, None)
         if pose is None:
-            continue
-
-        img_path = images_dir / f"{img_name}.jpg"
-        if not img_path.exists():
             continue
 
         depth_path = depths_dir / f"{img_name}.png"
@@ -50,9 +57,6 @@ def process_masks(
             continue
 
         depth = cv2.imread(str(depth_path), cv2.IMREAD_UNCHANGED).astype(np.float32)
-        image = cv2.imread(str(img_path), cv2.IMREAD_COLOR_RGB)
-
-        image = enhance_image(image, clahe)
         positions = get_world_coordinates(depth, sensor, pose)
 
         h, w = image.shape[:2]
@@ -76,14 +80,13 @@ def process_masks(
             prompt, poly = sam.get_prompt(points, depth, positions, valid_mask, tree)
             obj_id, enc_rgb = id_map.get_id(label)
 
-            # Always feed frame to model even if no mask is returned, to maintain temporal consistency
-            raw_mask = sam.infer(image, prompt, i, obj_id)
-            if raw_mask is None:
+            if prompt is None or poly is None:
                 continue
 
-            mask = sam.process_mask(raw_mask, poly)
-            filled_mask, colored_layer = post_process_mask(mask, color, min_area)
-            filled_mask, encoded_layer = post_process_mask(mask, enc_rgb, min_area)
+            raw_mask = sam.infer(image, prompt, poly, i, obj_id)
+
+            filled_mask, colored_layer = post_process_mask(raw_mask, color, min_area)
+            filled_mask, encoded_layer = post_process_mask(raw_mask, enc_rgb, min_area)
 
             rgb_mask_accum = cv2.add(rgb_mask_accum, colored_layer)
             enc_mask_accum = cv2.add(enc_mask_accum, encoded_layer)
