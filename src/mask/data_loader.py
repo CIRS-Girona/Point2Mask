@@ -5,13 +5,13 @@ from scipy.spatial import KDTree
 import matplotlib.cm as cm
 
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import List, Dict, Tuple
 
 
 class Annotations:
     def __init__(self, seedpoints_images_path: Path, seedpoints_3d_path: Path):
         self.prompt_data: Dict[str, KDTree] = {}
-        self.image_data: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+        self.image_data: List[Tuple[str, np.ndarray, np.ndarray]] = []
 
         self._load(seedpoints_images_path, seedpoints_3d_path)
 
@@ -49,10 +49,10 @@ class Annotations:
                 temp_data[img_name][0].append(cls)
                 temp_data[img_name][1].append((round(float(x), 3), round(float(y), 3)))
 
-        # Convert to numpy arrays immediately
-        while temp_data:
-            k, v = temp_data.popitem()
-            self.image_data[k] = (np.array(v[0]), np.array(v[1]))
+        img_names = sorted(temp_data.keys())
+        for img_name in img_names:
+            v = temp_data.pop(img_name)
+            self.image_data.append((img_name, np.array(v[0]), np.array(v[1])))
 
 
 class IDMap:

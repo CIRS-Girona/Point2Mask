@@ -32,11 +32,8 @@ class SAMEngine:
             inference_device=self.device,
         )
 
-        self.frame_idx = 0
-
     def reset(self):
         self._session.reset_inference_session()
-        self.frame_idx = 0
 
     def get_prompt(self,
         points,
@@ -76,13 +73,14 @@ class SAMEngine:
     def infer(self,
         image: np.ndarray,
         box_prompt: np.ndarray | None,
+        frame_idx: int,
         object_id: int
     ) -> np.ndarray | None:
         # Reference: https://huggingface.co/docs/transformers/v5.14.0/en/model_doc/sam2_video#streaming-video-inference
         inputs = self.processor(images=image, device=self.device, return_tensors="pt").to(self.device)
         self.processor.add_inputs_to_inference_session(
             inference_session=self._session,
-            frame_idx=self.frame_idx,
+            frame_idx=frame_idx,
             obj_ids=[object_id],
             input_boxes=box_prompt,
             original_size=inputs.original_sizes[0],
@@ -91,7 +89,6 @@ class SAMEngine:
         outputs = self.model(inference_session=self._session, frame=inputs.pixel_values[0])
         masks = self.processor.post_process_masks([outputs.pred_masks], original_sizes=inputs.original_sizes)
 
-        self.frame_idx += 1
         if box_prompt is None:
             return None
 

@@ -33,7 +33,7 @@ def process_masks(
     processed = {im.name.split('_overlay')[0] for im in output_dir.glob("*.jpg")}
 
     coco = CocoExporter()
-    for img_name, (labels, points) in tqdm(annotations.image_data.items(), desc="Mask Generation"):
+    for i, (img_name, labels, points) in enumerate(tqdm(annotations.image_data, desc="Mask Generation")):
         if img_name in processed:
             continue
 
@@ -77,7 +77,7 @@ def process_masks(
             obj_id, enc_rgb = id_map.get_id(label)
 
             # Always feed frame to model even if no mask is returned, to maintain temporal consistency
-            raw_mask = sam.infer(image, prompt, obj_id)  
+            raw_mask = sam.infer(image, prompt, i, obj_id)
             if raw_mask is None:
                 continue
 
