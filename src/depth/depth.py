@@ -2,44 +2,12 @@ from pathlib import Path
 from typing import List, Tuple
 
 import cv2
-import numpy as np
 import open3d as o3d
 
 from tqdm import tqdm
 
 from .cameras import Sensor, Pose
 from .raytrace import raytrace
-
-
-def get_world_coordinates(depthmap: np.ndarray, sensor: Sensor, pose: Pose) -> np.ndarray:
-    # Convert depth to meters
-    dist = depthmap.astype(np.float32) / 1000.0
-
-    # Multiply normalized rays by depth to get actual 3D camera coordinates
-    x_cam = sensor.x
-    y_cam = sensor.y
-    z_cam = np.full_like(x_cam, 1.0)
-
-    # Stack into an (H, W, 3) array
-    ray_vectors = np.stack((x_cam, y_cam, z_cam), axis=-1)
-    ray_vectors /= np.linalg.norm(ray_vectors, axis=-1, keepdims=True)
-
-    # Scale the normalized rays by the Euclidean distance
-    ray_vectors *= dist[..., np.newaxis]
-
-    # Rotate local ray vectors to world space
-    R = pose.T[:3, :3]
-
-    # Normalize the columns of R to remove the Agisoft chunk scale factor
-    R = R / np.linalg.norm(R, axis=0)
-
-    # Rotate local ray vectors to world space
-    ray_vectors = np.einsum('ij,hwj->hwi', R, ray_vectors)
-
-    # Broadcast translation to the grid size
-    origins = np.broadcast_to(pose.T[:3, 3], ray_vectors.shape)
-
-    return origins + ray_vectors  # World coordinates of each pixel
 
 
 def process_depthmaps(

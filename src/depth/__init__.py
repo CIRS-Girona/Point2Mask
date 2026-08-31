@@ -1,2 +1,3 @@
 from .cameras import Sensor, Pose
-from .depth import process_depthmaps, get_world_coordinates
+from .utils import get_world_coordinates, get_viewing_angles
+from .depth import process_depthmaps

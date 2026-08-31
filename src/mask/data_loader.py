@@ -58,7 +58,7 @@ class IDMap:
     def __init__(self, dir_path: str):
         self.file_path = Path(dir_path) / "ID_map.csv"
         self._ids: Dict[str, int] = {}
-        self._reverse_ids: Dict[str, int] = {}
+        self._reverse_ids: Dict[int, str] = {}
         self._load()
 
     def _load(self):
@@ -89,6 +89,10 @@ class IDMap:
         rgb_color = self.object_id_to_rgb(object_id)
 
         return object_id, rgb_color
+
+    def get_label(self, object_id: int) -> str:
+        class_id, instance_id = self.decode_object_id(object_id)
+        return self._reverse_ids.get(class_id, None)
 
     @staticmethod
     def encode_object_id(class_id: int, instance_id: int) -> int:
@@ -121,6 +125,9 @@ class IDMap:
     @staticmethod
     def get_colors(n: int) -> np.ndarray:
         """Returns a list of n distinct colors from the gist_rainbow colormap in RGB format."""
+        if n == 0:
+            return np.array([])
+
         return np.array([
             255 * np.array(cm.gist_rainbow(c)[:3])
             for c in np.arange(0, 1, 1/n)

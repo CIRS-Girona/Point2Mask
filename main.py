@@ -1,10 +1,9 @@
-import cv2
 import yaml
 from pathlib import Path
 
 from tqdm import tqdm
 
-from src.utils import SFTPHelper, camera_parser, process_meshes, download_contents, upload_contents
+from src.utils import SFTPHelper, camera_parser, save_img_stats, process_meshes, download_contents, upload_contents
 from src.mask import Annotations, IDMap, SAMEngine, process_masks
 from src.depth import process_depthmaps
 
@@ -27,13 +26,16 @@ if __name__ == "__main__":
                 cfg['sftp_settings']['download_dir'],
                 cfg['images_dir'],
                 cfg['cameras'],
-                (day, )
+                (day, ),
+                cfg['mesh_file'],
+                cfg['cameras_file']
             )
 
     if cfg['sftp_settings']['process_meshes']:
-        print("Simplifying meshes...")
+        print("Processing meshes...")
         process_meshes(
             str(dataset_dir),
+            cfg['mesh_file'],
             cfg['sftp_settings']['mesh_gb_threshold'],
             cfg['sftp_settings']['decimate_percent']
         )
@@ -42,14 +44,11 @@ if __name__ == "__main__":
         cfg['mask_generation']['occlusion_threshold'],
         cfg['mask_generation']['distance_threshold'],
         cfg['mask_generation']['bb_area_threshold'],
-        cfg['mask_generation']['point_sample_threshold']
+        cfg['mask_generation']['point_sample_threshold'],
+        cfg['clip_limit'], cfg['tile_grid_size']
     )
 
     id_map = IDMap(str(dataset_dir))
-    clahe = cv2.createCLAHE(
-        clipLimit=cfg['clip_limit'],
-        tileGridSize=(cfg['tile_grid_size'], cfg['tile_grid_size'])
-    )
 
     dirs = []
     for day in dataset_dir.iterdir():
@@ -93,6 +92,12 @@ if __name__ == "__main__":
                 mesh_file
             )
 
+        save_img_stats(
+            Path(camera) / cfg['image_stats_file'],
+            Path(camera) / cfg['depths_dir'],
+            sensors[0]
+        )
+
         if cfg['mask_generation']['enabled']:
             seed_images = Path(camera) / cfg['seedpoints_images_file']
             seed_points = Path(camera) / cfg['seedpoints_3d_file']
@@ -101,20 +106,14 @@ if __name__ == "__main__":
                 print(f"Seedpoints files not found for {day.name}/{plot.name}/{camera.name}. Skipping mask generation.")
                 continue
 
-            sam.reset()
             process_masks(
                 Path(camera) / cfg['masks_dir'],
                 Path(camera) / cfg['images_dir'],
                 Path(camera) / cfg['depths_dir'],
-                cfg['mask_generation']['min_area'],
                 cfg['mask_generation']['indexed_mapping'],
-                clahe,
                 sensors[0],
                 sam,
-                Annotations(
-                    seed_images,
-                    seed_points
-                ),
+                Annotations(seed_images, seed_points),
                 id_map,
             )
 

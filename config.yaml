@@ -6,11 +6,12 @@ images_dir: images/
 depths_dir: depthmaps/
 masks_dir: masks/
 
-# Names of input files (mesh, cameras, seedpoints)
+# Names of input/output files (mesh, cameras, seedpoints)
 mesh_file: mesh.ply
 cameras_file: cams.xml
 seedpoints_images_file: seedpoints_on_images.csv
 seedpoints_3d_file: seedpoints_in_3D.csv
+image_stats_file: stats.csv
 
 # CLAHE Settings
 clip_limit: 1.0
@@ -35,27 +36,31 @@ days:
   # - "250819"
   # - "250828"
   # - "251003"
-  - "251009"
+  # - "251009"
   # - "251107"
   # - "251120"
   # - "251124"
   # - "251204"
   # - "251208"
+  - "260204"
+  - "260227"
+  - "260327"
+  - "260406"
+  - "260506"
 
 sftp_settings:
-  download_data: false
-  process_meshes: false
-  upload_data: false     # Uploading data is done at the very end of the pipeline.
-  mesh_gb_threshold: 40  # Mesh size threshold in GB for converting to PLY
-  decimate_percent: 0.9  # Percentage of faces to retain for mesh simplification
+  download_data: true
+  process_meshes: true
+  upload_data: true                      # Uploading data is done at the very end of the pipeline.
+  mesh_gb_threshold: 38                   # Mesh size threshold in GB for converting to PLY
+  decimate_percent: 0.9                   # Percentage of faces to retain for mesh simplification
 
   # Directories on SFTP server for downloading and uploading data
   download_dir: "/home/fieldimagery"
   upload_dir: "/home/fieldimagery_processed"
 
-
 depthmap_generation:
-  enabled: false
+  enabled: true
 
   # Distortion Mapping Settings
   max_iterations: 100                      # Maximum number of iterations before terminating
@@ -64,14 +69,7 @@ depthmap_generation:
                                            # Smalller values will be more accurate but will require more iterations to converge.
 
 mask_generation:
-  enabled: false
-
-  # Prompt Generation Settings
-  prompt_type: "bb"  # Options: "bb", "pt", "both"
-  sampling_mode: "hr"  # Options: "hr", "yc"
-
-  # Mask Generation Settings
-  min_area: 2000
+  enabled: true
 
   # Objects that should be included in the integer masks along with their values.
   # If an object is not listed here, it will be assigned a value of 0 in the integer masks.
@@ -85,4 +83,4 @@ mask_generation:
   occlusion_threshold: 0.01              # Maximum distance between pixel and prompt (in meters)
   distance_threshold: 3.5                # Maximum distance threshold (in meters)
   bb_area_threshold: 150.0               # Minimum bounding box side length threshold (in pixels)
-  point_sample_threshold: 50             # Minimum number of points to sample for SAM prompt generation
+  point_sample_threshold: 50             # Minimum number of points to sample for SAM prompt generation (Needs to be greater than 2)

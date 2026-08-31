@@ -13,7 +13,9 @@ def download_contents(
     download_dir: str,
     images_dir: str,
     cameras: List[str],
-    days: List[str]
+    days: List[str],
+    mesh_file: str,
+    cam_file: str
 ):
     nas_dir_path = f"{download_dir}/{filepath}"
 
@@ -28,7 +30,17 @@ def download_contents(
             continue
 
         if sftp.is_dir(nas_file_path):
-            download_contents(sftp, f"{filepath}/{file}", local_dir, download_dir, images_dir, cameras, days)
+            download_contents(
+                sftp,
+                f"{filepath}/{file}",
+                local_dir,
+                download_dir,
+                images_dir,
+                cameras,
+                days,
+                mesh_file,
+                cam_file
+            )
             continue
 
         # Extraction logic (Day, Plot, Camera)
@@ -61,9 +73,9 @@ def download_contents(
             local_dir_path += f"/{images_dir}"
             local_file_path = f"{local_dir_path}/{label}.{ext}"
         elif ext == "obj" and ("gps" in file or "cc" in file):
-            local_file_path = f"{local_dir_path}/mesh.obj"
+            local_file_path = f"{local_dir_path}/{mesh_file.split('.')[0]}.obj"
         elif ext == "xml" and ("gps" in file or "cc" in file):
-            local_file_path = f"{local_dir_path}/cams.xml"
+            local_file_path = f"{local_dir_path}/{cam_file}"
         elif ext == "csv" or (ext in ["mtl", "png"] and ("gps" in file or "cc" in file)):
             local_file_path = f"{local_dir_path}/{label}.{ext}"
         else:
@@ -74,7 +86,7 @@ def download_contents(
         # Check for skip
         if os.path.exists(local_file_path) and sftp.get_size(nas_file_path) == os.path.getsize(local_file_path):
             continue
-        elif ".obj" in file and os.path.exists(f"{local_dir_path}/mesh.ply"):
+        elif ".obj" in file and os.path.exists(f"{local_dir_path}/{mesh_file}"):
             continue
 
         sftp.download(nas_file_path, local_file_path)
@@ -86,19 +98,24 @@ def upload_contents(
     upload_dir: str
 ):
     for day in tqdm(os.listdir(local_dir), desc="Days uploaded"):
-        day_path = os.path.join(local_dir, day)
-        if not os.path.isdir(day_path): continue
+        if not os.path.isdir(f"{local_dir}/{day}"): continue
+        for plot in os.listdir(f"{local_dir}/{day}"):
+            if not os.path.isdir(f"{local_dir}/{day}/{plot}"): continue
+            for camera in os.listdir(f"{local_dir}/{day}/{plot}"):
+                if not os.path.isdir(f"{local_dir}/{day}/{plot}/{camera}"): continue
 
-        for plot in os.listdir(day_path):
-            plot_path = os.path.join(day_path, plot)
-            for camera in os.listdir(plot_path):
+                local_base = f"{local_dir}/{day}/{plot}/{camera}"
                 remote_base = f"{upload_dir}/{day}/{plot}/{camera}"
                 sftp.makedirs(remote_base)
 
                 print(f"Processing {day}/{plot}/{camera}")
 
+                stats_path = f"{local_base}/stats.csv"
+                if os.path.exists(stats_path):
+                    sftp.sftp.put(stats_path, f"{remote_base}/stats.csv")
+
                 for d in ("masks", "depthmaps"):
-                    local_sub_dir = f"{plot_path}/{camera}/{d}/"
+                    local_sub_dir = f"{local_base}/{d}/"
                     if not os.path.exists(local_sub_dir):
                         continue
 
@@ -106,7 +123,7 @@ def upload_contents(
                     sftp.makedirs(remote_sub_dir)
 
                     for f in os.listdir(local_sub_dir):
-                        l_file = os.path.join(local_sub_dir, f)
+                        l_file = f"{local_sub_dir}/{f}"
                         r_file = f"{remote_sub_dir}/{f}"
 
                         # Skip if exists and size matches

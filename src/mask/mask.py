@@ -11,7 +11,6 @@ from ..depth import Sensor, get_world_coordinates
 
 from .data_loader import Annotations, IDMap
 from .sam_engine import SAMEngine
-from .image_ops import enhance_image, post_process_mask
 from .coco_exporter import CocoExporter
 
 
@@ -19,9 +18,7 @@ def process_masks(
         output_dir: Path,
         images_dir: Path,
         depths_dir: Path,
-        min_area: int,
         mapping: Dict[str, int],
-        clahe,
         sensor: Sensor,
         sam: SAMEngine,
         annotations: Annotations,
@@ -33,19 +30,19 @@ def process_masks(
     processed = {im.name.split('_overlay')[0] for im in output_dir.glob("*.jpg")}
 
     coco = CocoExporter()
-    for i, img_path in enumerate(tqdm(sorted(images_dir.glob("*.jpg")), desc="Mask Generation")):
-        img_name = img_path.name.split('.')[0]
-
-        image = cv2.imread(str(img_path), cv2.IMREAD_COLOR_RGB)
-        image = enhance_image(image, clahe)
-
+    for img_name, (labels, points) in tqdm(annotations.image_data.items(), desc="Mask Generation"):
+        img_path = images_dir / f"{img_name}.jpg"
         depth_path = depths_dir / f"{img_name}.png"
         pose = poses.get(img_name, None)
-        labels, points = annotations.image_data.get(img_name, (None, None))
 
-        if img_name in processed or not depth_path.exists() or pose is None or labels is None or points is None:
-            sam.infer(image, None, i, 0)  # Always feed frame to model to maintain temporal consistency
+        if img_name in processed or not img_path.exists() or not depth_path.exists() or pose is None:
+            continue
 
+        image = cv2.imread(str(img_path), cv2.IMREAD_COLOR_RGB)
+        if image is None:
+            continue
+
+        image = sam.enhance_image(image)
         depth = cv2.imread(str(depth_path), cv2.IMREAD_UNCHANGED).astype(np.float32)
         positions = get_world_coordinates(depth, sensor, pose)
 
@@ -57,29 +54,30 @@ def process_masks(
         enc_mask_accum = np.zeros_like(image)
         idx_mask_accum = np.zeros(image.shape[:2], dtype=np.uint8)
 
-        prompts = ([], [])  # bb, obj_id
+        prompts, obj_ids = [], []
         for label in np.unique(labels):  # Process every object in the image
             valid_mask = labels == label
             valid_mask &= np.all(points >= 0, axis=1)  # Ensure points are valid
             valid_mask &= np.all(points[:, :2] < [w, h], axis=1)  # Ensure points are within image bounds
 
             tree = annotations.prompt_data.get(label, None)
-            prompt, poly = sam.get_prompt(points, depth, positions, valid_mask, tree)
+            prompt = sam.get_prompt(points, depth, positions, valid_mask, tree)
 
             if prompt is None:
                 continue
 
             obj_id, _ = id_map.get_id(label)
 
-            prompts[0].append(prompt)
-            prompts[1].append(obj_id)
+            prompts.append(prompt)
+            obj_ids.append(obj_id)
 
-        raw_mask = sam.infer(image, prompts[0], i, prompts[1])
-        if len(prompts[1]) == 0:
+        if len(obj_ids) == 0:
             continue
 
-        colors = IDMap.get_colors(len(prompts[1]))
-        for obj_id, color in zip(prompts[1], colors):
+        raw_mask = sam.infer(image, prompts, obj_ids)
+
+        colors = IDMap.get_colors(len(obj_ids))
+        for obj_id, color in zip(obj_ids, colors):
             loc = raw_mask == obj_id
 
             rgb_mask_accum[loc] = color
@@ -88,7 +86,7 @@ def process_masks(
             filled_mask = 0 * raw_mask
             filled_mask[loc] = 1
 
-            category = id_map._reverse_ids[obj_id]
+            category = id_map.get_label(obj_id)
             coco_cat_id = coco.add_category(category)
             segmentation = coco.add_annotation(coco_img_id, coco_cat_id, filled_mask)
 
