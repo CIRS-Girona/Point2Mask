@@ -1,69 +1,76 @@
-# MeshToDepth: Generate Depth Maps from 3D Meshes and Camera Poses
-
-MeshToDepth is a Python tool designed to generate depth maps from a 3D mesh (`.obj`, `.ply`, `.stl`, `.gltf`, `.glb`) using camera pose information. It simulates camera views based on provided calibration and transformation data, performs ray tracing against the mesh, and outputs depth images corresponding to each camera view.
-
-## Key Features
-
-* **Depth and Heat Map Generation:** Generates 16-bit depth maps (in millimeters) from specified camera viewpoints. A value of zero indicates an invalid depth measurement. It also automatically produces corresponding heat maps for easy visualization of the depth data.
-
-* **Support for Multiple Camera Formats:** Integrates seamlessly with popular photogrammetry software. It currently supports camera calibration and pose files from **Agisoft Metashape (.xml)** and **Meshroom (.sfm)**. Support for other software solutions can be added by extending the parsers available.
-
-* **Mesh Scaling and Distortion:** Provides robust options for accurate, real-world measurements. You can dynamically rescale depth data by specifying a known distance between camera poses and apply camera distortion models to the generated depth maps and images.
-
-* **Perspective Correction:** Optionally aligns the output depth maps and rendered views to match a real-world reference photograph. Using feature matching (SIFT) and image homography, it corrects the perspective and can even generate complete, null-region-free views by adjusting the field of view.
-
-* **Manual View Generation:** For custom setups, you can define your own camera views for depth computation. While you provide the camera intrinsics for these views, a camera file is still needed if you plan to enable mesh rescaling.
-
-* **Optional Scene Rendering:** You can choose to save rendered RGB images of the mesh from each camera view. Useful for debugging and visualizing the scene, though it will increase both computation time and resource usage.
-
-**Note:** The quality of the output depth maps and rendered scenes is directly dependent on the quality of the input mesh.
-
-**Another Note:** This toolkit picks up from the last pose processed in-case its workflow was interrupted. If you would like to recompute everything, please empty the output folder first before running.
-
-## Recommended Mesh File Formats
-
-The choice of mesh file format significantly impacts the performance of depth map processing, affecting both **loading speed** and **computational resource** consumption. For optimal performance, we strongly recommend using a **binary file format** over an ASCII-based one.
+# SERDP Dataset Processing Pipeline
 
 
-### Why Binary Formats Are Better
+### Dataset Organization
 
-Binary formats like **`.stl`**, **`.ply`**, and **`.glb`** are recommended since they are:
-* **More compact** in size.
-* **Loaded faster** due to their lower-level representation.
-* **Less resource-intensive**, consuming significantly less memory during parsing.
+This step involves processing the original image/depth/mask data to generate training patches.
 
-In contrast, ASCII-based formats like **`.obj`** and **`.gltf`** can consume up to **5x more memory** just for parsing.
+**Input Data Format:**
 
-### Choosing the Right Format for Your Needs
+The pipeline will organize the original data within a specifc directory structure under `dataset_dir` in the `config.yaml` file. The `dataset_dir` directory will host one or more days organized as folders. For each day, plot, camera folder combination, the following subdirectories and files will be organized in the following manner:
 
-* **For untextured meshes**: We recommend using the **`.stl`** format. It's a simple, robust, and widely supported standard perfect for meshes without color information.
-* **For meshes with color/texture**: We recommend the **`.ply`** format. It offers excellent support for color data and has a large, active community.
+* `images`: Contains original 2D imagery.
+* `depthmaps`: Contains corresponding depth maps, formatted as 1-channel, 16-bit PNGs.
+* `masks`: Contains corresponding masks indicating the location of target objects, formatted as 1-channel, 8-bit PNGs and 3-channel, 8-bit PNGs and COCO annotations file.
+* `cams.xml`: Contains the intrinsic and extrinsic information of the camera in the *Agisoft Metashape* format.
+* `mesh.ply`: The 3D mesh file for ray tracing to generate the depth maps
+* `seedpoints_on_images.csv`: Contains the u, v coordinates for each masking prompt in each image
+* `seedpoints_in_3D.csv`: Contains the x, y, z coordinates for each masking prompt in the mesh
+* `stats.csv`: Contains depth and viewing angle statistics for every image
 
-### Converting File Formats
+***Example:***
 
-If you need to convert your mesh files, a great open-source tool is **[Meshlab](https://github.com/cnr-isti-vclab/meshlab)**. It's a popular, graphical software solution that supports a wide variety of mesh processing tasks and file formats.
+```
+input_dir/
+└── day_1/
+    ├── plot1/
+    │   ├── GoPro/
+    │   │   ├── images/
+    │   │   │   ├── img_01.jpg
+    │   │   │   └── ...
+    │   │   ├── depthmaps/
+    │   │   │   ├── img_01.png
+    │   │   │   └── ...
+    │   │   └── masks/
+    │   │       ├── img_01.png
+    │   │       └── ...
+    │   ├── 24mm/
+    │   │   ├── images/
+    │   │   ├── depthmaps/
+    │   │   └── masks/
+    │   └── 35mm/
+    │       └── ...
+    ├── plot2/
+    │   └── ...
+    └── plot3/
+        └── ...
+└── day_2/
+    ├── plot1/
+    │   └── ...
+    └── ...
+```
 
 ## Example Output
 
-<table style="width:100%; text-align: center;"> 
+<table style="width: 100%; text-align: center;"> 
   <tr>
     <th>Original Image</th>
-    <th>Captured Scene</th>
     <th>Heat Map</th>
+    <th>Mask Overlay</th>
   </tr>
   <tr>
-    <td> <img src="assets/cc_IMG-4938.jpg" alt="Original Image"/> </td> 
-    <td> <img src="assets/cc_IMG-4938_scene.jpg" alt="Captured Scene"/> </td> 
-    <td> <img src="assets/cc_IMG-4938_heatmap.jpg" alt="Heat Map"/> </td> 
+    <td><img src="assets/18mm.jpg" alt="18MM Original Image" style="max-width: 512px; width: 100%; height: auto;"/></td>
+    <td><img src="assets/18mm_heatmap.jpg" alt="18MM Heat Map" style="max-width: 512px; width: 100%; height: auto;"/></td>
+    <td><img src="assets/18mm_overlay.jpg" alt="18MM Mask Overlay" style="max-width: 512px; width: 100%; height: auto;"/></td>
   </tr>
   <tr>
-    <td> <img src="assets/cc_IMG-4943.jpg" alt="Original Image"/> </td> 
-    <td> <img src="assets/cc_IMG-4943_scene.jpg" alt="Captured Scene"/> </td> 
-    <td> <img src="assets/cc_IMG-4943_heatmap.jpg" alt="Heat Map"/> </td> 
+    <td><img src="assets/24mm.jpg" alt="24MM Original Image" style="max-width: 512px; width: 100%; height: auto;"/></td>
+    <td><img src="assets/24mm_heatmap.jpg" alt="24MM Heat Map" style="max-width: 512px; width: 100%; height: auto;"/></td>
+    <td><img src="assets/24mm_overlay.jpg" alt="24MM Mask Overlay" style="max-width: 512px; width: 100%; height: auto;"/></td>
   </tr>
   <tr>
-    <td> <img src="assets/cc_IMG-4945.jpg" alt="Original Image"/> </td> 
-    <td> <img src="assets/cc_IMG-4945_scene.jpg" alt="Captured Scene"/> </td> 
-    <td> <img src="assets/cc_IMG-4945_heatmap.jpg" alt="Heat Map"/> </td> 
+    <td><img src="assets/gopro.jpg" alt="Go Pro Original Image" style="max-width: 512px; width: 100%; height: auto;"/></td>
+    <td><img src="assets/gopro_heatmap.jpg" alt="Go Pro Heat Map" style="max-width: 512px; width: 100%; height: auto;"/></td>
+    <td><img src="assets/gopro_overlay.jpg" alt="Go Pro Mask Overlay" style="max-width: 512px; width: 100%; height: auto;"/></td>
   </tr>
 </table>
