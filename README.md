@@ -35,17 +35,17 @@ Input datasets are structured in `Day / Plot / Camera` hierarchies under `datase
 
 ```
 dataset_dir/
-├── 260204/                     # Day folder (YYMMDD format)
-│   ├── plot_1/                 # Plot identifier
-│   │   ├── 18mm/               # Camera / Lens folder (e.g., 18mm, 24mm, 35mm, 55mm, GPS)
-│   │   │   ├── images/         # Raw 2D imagery (.jpg)
-│   │   │   ├── depthmaps/      # Output depth maps (.png) & heatmaps (_heatmap.jpg)
-│   │   │   ├── masks/          # Output SAM 2 masks (*_rgb.png, *_idx.png, annotations_coco.json)
-│   │   │   ├── cams.xml        # Agisoft Metashape camera intrinsics & extrinsics
-│   │   │   ├── mesh.ply        # Decimated 3D surface mesh
-│   │   │   ├── seedpoints_on_images.csv # 2D image-space seed points (u, v, class)
-│   │   │   ├── seedpoints_in_3D.csv     # 3D mesh-space seed points (x, y, z, class)
-│   │   │   └── stats.csv       # Distance and viewing angle statistics per camera pose
+├── 260204/                               # Day folder (YYMMDD format)
+│   ├── plot_1/                           # Plot identifier
+│   │   ├── 18mm/                         # Camera / Lens folder (e.g., 18mm, 24mm, 35mm, 55mm, GPS)
+│   │   │   ├── images/                   # Raw 2D imagery (.jpg)
+│   │   │   ├── depthmaps/                # Output depth maps (.png) & heatmaps (_heatmap.jpg)
+│   │   │   ├── masks/                    # Output SAM 2 masks (*_rgb.png, *_idx.png, annotations_coco.json)
+│   │   │   ├── cams.xml                  # Agisoft Metashape camera intrinsics & extrinsics
+│   │   │   ├── mesh.ply                  # Decimated 3D surface mesh
+│   │   │   ├── seedpoints_on_images.csv  # 2D image-space seed points (u, v, label)
+│   │   │   ├── seedpoints_in_3D.csv      # 3D mesh-space seed points (x, y, z, label)
+│   │   │   └── stats.csv                 # Distance and viewing angle statistics per camera pose
 │   │   └── 24mm/
 │   │       └── ...
 │   └── plot_2/
