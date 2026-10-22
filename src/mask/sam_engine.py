@@ -68,8 +68,8 @@ class SAMEngine:
 
         return cv2.cvtColor(image, cv2.COLOR_HSV2RGB)
 
-    def get_prompt(self, points, depth, positions, valid_mask, tree):
-        if not np.any(valid_mask) or tree is None:
+    def get_prompt(self, points, depth, valid_mask):
+        if not np.any(valid_mask):
             return None
 
         group_points = points[valid_mask]
@@ -77,14 +77,6 @@ class SAMEngine:
 
         # Filter points based on distance from the camera
         group_points = group_points[group_depths <= self.distance_th]
-        if len(group_points) == 0:
-            return None
-
-        # Filter occluded points using KDTree
-        pixel_positions = positions[group_points[:, 1].astype(int), group_points[:, 0].astype(int)]
-        distances, _ = tree.query(pixel_positions, k=1, distance_upper_bound=self.occlusion_th)
-
-        group_points = group_points[distances != np.inf]
         if len(group_points) == 0:
             return None
 

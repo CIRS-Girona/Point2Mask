@@ -1,5 +1,6 @@
 import yaml
 from pathlib import Path
+from typing import List, Tuple
 
 from tqdm import tqdm
 
@@ -48,9 +49,13 @@ if __name__ == "__main__":
         cfg['clip_limit'], cfg['tile_grid_size']
     )
 
-    id_map = IDMap(str(dataset_dir))
+    id_map = IDMap(
+        str(dataset_dir),
+        {int(k): set(v) for k, v in cfg['mask_generation']['superclasses'].items()},
+        {str(k): str(v) for k, v in cfg['mask_generation']['label_correction'].items()},
+    )
 
-    dirs = []
+    dirs: List[Tuple[Path, Path, Path]] = []
     for day in dataset_dir.iterdir():
         if not day.is_dir(): continue
         if day.name not in cfg['days']: continue
@@ -81,46 +86,43 @@ if __name__ == "__main__":
             )
 
         if cfg['depthmap_generation']['enabled']:
-            mesh_file = Path(camera) / cfg['mesh_file']
+            mesh_file = camera / cfg['mesh_file']
             if not mesh_file.exists():
                 print(f"Mesh file not found for {day.name}/{plot.name}/{camera.name}. Skipping depthmap and mask generation.")
                 continue
 
             process_depthmaps(
                 sensors,
-                Path(camera) / cfg['depths_dir'],
+                camera / cfg['depths_dir'],
                 mesh_file
             )
 
         save_img_stats(
-            Path(camera) / cfg['image_stats_file'],
-            Path(camera) / cfg['depths_dir'],
+            camera / cfg['image_stats_file'],
+            camera / cfg['depths_dir'],
             sensors[0]
         )
 
         if cfg['mask_generation']['enabled']:
-            seed_images = Path(camera) / cfg['seedpoints_images_file']
-            seed_points = Path(camera) / cfg['seedpoints_3d_file']
+            seed_images = camera / cfg['seedpoints_images_file']
 
-            if not seed_images.exists() or not seed_points.exists():
-                print(f"Seedpoints files not found for {day.name}/{plot.name}/{camera.name}. Skipping mask generation.")
-                continue
+            if seed_images.exists():
+                process_masks(
+                    camera / cfg['masks_dir'],
+                    camera / cfg['images_dir'],
+                    camera / cfg['depths_dir'],
+                    cfg['mask_generation']['indexed_mapping'],
+                    sensors[0],
+                    sam,
+                    Annotations(seed_images),
+                    id_map,
+                )
 
-            process_masks(
-                Path(camera) / cfg['masks_dir'],
-                Path(camera) / cfg['images_dir'],
-                Path(camera) / cfg['depths_dir'],
-                cfg['mask_generation']['indexed_mapping'],
-                sensors[0],
-                sam,
-                Annotations(seed_images, seed_points),
-                id_map,
+        if cfg['sftp_settings']['upload_data']:
+            print("Uploading files via SFTP...")
+            upload_contents(
+                sftp,
+                str(dataset_dir),
+                cfg['sftp_settings']['upload_dir'],
+                day.name, plot.name, camera.name
             )
-
-    if cfg['sftp_settings']['upload_data']:
-        print("Uploading files via SFTP...")
-        upload_contents(
-            sftp,
-            str(dataset_dir),
-            cfg['sftp_settings']['upload_dir']
-        )

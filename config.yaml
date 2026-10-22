@@ -1,5 +1,5 @@
 # Paths to data files/folder
-dataset_dir: path/to/data/directory/
+dataset_dir: /media/cirs/Spinner1/Taqi/Field_Data
 
 # Structure of data directories (day/plot/camera/...)
 images_dir: images/
@@ -20,28 +20,28 @@ tile_grid_size: 3
 # Days and Cameras to process.
 cameras: ["18mm", "24mm", "35mm", "55mm", "gps"]
 days:
-  # - "250218"
-  # - "250320"
-  # - "250326"
-  # - "250327"
-  # - "250402"
-  # - "250409"
-  # - "250506"
-  # - "250514"
-  # - "250620"
-  # - "250707"
-  # - "250714"
-  # - "250724"
-  # - "250815"
-  # - "250819"
-  # - "250828"
-  # - "251003"
-  # - "251009"
-  # - "251107"
-  # - "251120"
-  # - "251124"
-  # - "251204"
-  # - "251208"
+  - "250218"
+  - "250320"
+  - "250326"
+  - "250327"
+  - "250402"
+  - "250409"
+  - "250506"
+  - "250514"
+  - "250620"
+  - "250707"
+  - "250714"
+  - "250724"
+  - "250815"
+  - "250819"
+  - "250828"
+  - "251003"
+  - "251009"
+  - "251107"
+  - "251120"
+  - "251124"
+  - "251204"
+  - "251208"
   - "260204"
   - "260227"
   - "260327"
@@ -49,8 +49,8 @@ days:
   - "260506"
 
 sftp_settings:
-  download_data: true
-  process_meshes: true
+  download_data: false
+  process_meshes: false
   upload_data: true                      # Uploading data is done at the very end of the pipeline.
   mesh_gb_threshold: 38                   # Mesh size threshold in GB for converting to PLY
   decimate_percent: 0.9                   # Percentage of faces to retain for mesh simplification
@@ -60,7 +60,7 @@ sftp_settings:
   upload_dir: "/home/fieldimagery_processed"
 
 depthmap_generation:
-  enabled: true
+  enabled: false
 
   # Distortion Mapping Settings
   max_iterations: 100                      # Maximum number of iterations before terminating
@@ -69,7 +69,7 @@ depthmap_generation:
                                            # Smalller values will be more accurate but will require more iterations to converge.
 
 mask_generation:
-  enabled: true
+  enabled: false
 
   # Objects that should be included in the integer masks along with their values.
   # If an object is not listed here, it will be assigned a value of 0 in the integer masks.
@@ -78,6 +78,20 @@ mask_generation:
     B: 2
     C: 3
     D: 4
+
+  # Class 0 is reserved for incomplete annotations
+  # Class 1 is reserved for background type annotation
+  superclasses:
+    0: [Bspng, Mcav, Ofav, Ospng, Sbour, Sint, Ssid, bottle, chain, cube, debris, reel, sponge]
+    2: [cylinder, scale, color]
+    3: [A, B, C, D, e, f]
+
+  # Format is "Incorrect Instance: Correct Label"
+  label_correction:
+    Cylinder: cylinder
+    cylnder: cylinder
+    chain.end: chain
+    target: scale
 
   # Prompt Filtering Settings
   occlusion_threshold: 0.01              # Maximum distance between pixel and prompt (in meters)

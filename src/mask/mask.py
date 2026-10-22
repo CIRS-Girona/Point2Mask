@@ -44,7 +44,6 @@ def process_masks(
 
         image = sam.enhance_image(image)
         depth = cv2.imread(str(depth_path), cv2.IMREAD_UNCHANGED).astype(np.float32)
-        positions = get_world_coordinates(depth, sensor, pose)
 
         h, w = image.shape[:2]
         creation_time = img_path.stat().st_ctime
@@ -60,8 +59,7 @@ def process_masks(
             valid_mask &= np.all(points >= 0, axis=1)  # Ensure points are valid
             valid_mask &= np.all(points[:, :2] < [w, h], axis=1)  # Ensure points are within image bounds
 
-            tree = annotations.prompt_data.get(label, None)
-            prompt = sam.get_prompt(points, depth, positions, valid_mask, tree)
+            prompt = sam.get_prompt(points, depth, valid_mask)
 
             if prompt is None:
                 continue

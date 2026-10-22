@@ -9,34 +9,16 @@ from typing import Dict, Tuple
 
 
 class Annotations:
-    def __init__(self, seedpoints_images_path: Path, seedpoints_3d_path: Path):
-        self.prompt_data: Dict[str, KDTree] = {}
+    def __init__(self, seedpoints_images_path: Path):
         self.image_data: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
 
-        self._load(seedpoints_images_path, seedpoints_3d_path)
+        self._load(seedpoints_images_path)
 
-    def _load(self, images_path: Path, points_3d_path: Path):
-        if not images_path.exists() or not points_3d_path.exists():
-            raise FileNotFoundError(f"Annotation file not found: {images_path} or {points_3d_path}")
+    def _load(self, images_path: Path):
+        if not images_path.exists():
+            raise FileNotFoundError(f"Annotation file not found: {images_path}")
 
         temp_data = {}
-        with open(points_3d_path, 'r') as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if len(row) != 4: continue
-
-                x, y, z, cls = row
-                if cls not in temp_data:
-                    temp_data[cls] = []  # 3D points
-
-                temp_data[cls].append((round(float(x), 3), round(float(y), 3), round(float(z), 3)))
-
-        # Convert to KDTree objects immediately
-        while temp_data:
-            k, v = temp_data.popitem()
-            self.prompt_data[k] = KDTree(np.array(v))
-
-        temp_data.clear()
         with open(images_path, 'r') as f:
             reader = csv.reader(f)
             for row in reader:
@@ -55,10 +37,15 @@ class Annotations:
 
 
 class IDMap:
-    def __init__(self, dir_path: str):
+    def __init__(self, dir_path: str, superclasses: Dict[int, set], label_correction: Dict[str, str]):
         self.file_path = Path(dir_path) / "ID_map.csv"
         self._ids: Dict[str, int] = {}
         self._reverse_ids: Dict[int, str] = {}
+
+        self.superclasses = superclasses
+        self.label_correction = label_correction
+        self.superclass_count = {k: 0 for k in self.superclasses.keys()}
+
         self._load()
 
     def _load(self):
@@ -66,6 +53,9 @@ class IDMap:
             with open(self.file_path, 'r') as f:
                 for row in csv.reader(f):
                     if len(row) == 2:
+                        supercls = self.get_superclass(row[0].split('_')[0])
+                        self.superclass_count[supercls] += 1
+
                         self._ids[row[0]] = int(row[1])
                         self._reverse_ids[int(row[1])] = row[0]
 
@@ -79,32 +69,56 @@ class IDMap:
         """Returns the object ID and encoded RGB color for a given label."""
         cls, grp, inst = label.strip().split('_')
 
+        if cls in self.label_correction:
+            cls = self.label_correction[cls]
+
+        supercls = self.get_superclass(cls)
+
+        # Preserve group information
+        label_id = f"{cls}_{grp}"
+
         # Create a unique numerical identifier based on the class
-        if cls not in self._ids:
-            self._ids[cls] = len(self._ids) + 1
-            self._reverse_ids[self._ids[cls]] = cls
+        if label_id not in self._ids:
+            self._ids[label_id] = self.superclass_count[supercls]
+            self._reverse_ids[self._ids[label_id]] = label_id
+            self.superclass_count[supercls] += 1
             self._save()
 
-        object_id = self.encode_object_id(self._ids[cls], int(inst))
+        object_id = self.encode_object_id(supercls, self._ids[label_id], int(inst))
         rgb_color = self.object_id_to_rgb(object_id)
 
         return object_id, rgb_color
 
-    def get_label(self, object_id: int) -> str:
-        class_id, instance_id = self.decode_object_id(object_id)
+    def get_label(self, object_id: int) -> str | None:
+        superclass_id, class_id, instance_id = self.decode_object_id(object_id)
         return self._reverse_ids.get(class_id, None)
 
-    @staticmethod
-    def encode_object_id(class_id: int, instance_id: int) -> int:
-        """Returns a unique object ID based on class ID and instance ID."""
-        return class_id * 1000 + instance_id
+    def get_superclass(self, class_id: str) -> int:
+        for superclass, classes in self.superclasses.items():
+            if class_id in classes:
+                return superclass
+
+        return 0  # 0 is always the default class
 
     @staticmethod
-    def decode_object_id(object_id: int) -> Tuple[int, int]:
-        """Returns the class ID and instance ID from a unique object ID."""
-        class_id = object_id // 1000
-        instance_id = object_id % 1000
-        return class_id, instance_id
+    def encode_object_id(superclass_id: int, class_id: int, instance_id: int) -> int:
+        """
+        Returns a unique object ID based on class ID and instance ID.
+        
+        Allows for 1,000 instances per class
+        Allows for 10,000 classes per superclass
+        Allows for a total of 167 superclasses
+        """
+        return superclass_id * 100_000 + class_id * 1_000 + instance_id
+
+    @staticmethod
+    def decode_object_id(object_id: int) -> Tuple[int, int, int]:
+        """Returns the superclass ID, class ID, and instance ID from a unique object ID."""
+        superclass_id = object_id // 100_000
+        class_id = (object_id % 100_000) // 1_000
+        instance_id = object_id % 1_000
+        return superclass_id, class_id, instance_id
+
 
     @staticmethod
     def object_id_to_rgb(object_id: int) -> np.ndarray:
@@ -118,7 +132,7 @@ class IDMap:
         return np.array([r, g, b], dtype=np.uint8)
 
     @staticmethod
-    def rgb_to_object_id(encoded_id: np.ndarray) -> Tuple[int, int]:
+    def rgb_to_object_id(encoded_id: np.ndarray) -> Tuple[int, int, int]:
         object_id = (encoded_id[0] << 16) + (encoded_id[1] << 8) + encoded_id[2]
         return IDMap.decode_object_id(object_id)
 
